@@ -36,7 +36,28 @@ let main args =
     printfn "%A ** 12 == %A" e (e *^ 12)
     printfn "%A ** -3 = %A == %A ** 9 = %A: %b" c (c *^ -3) c (c *^ 9) (c *^ -3 = c *^ 9)
 
-    // let c = FieldElement.Create -2 17
-    // let d  = FieldElement.Create 19 17
+    try
+        FieldElement.Create -2 17 |> ignore 
+    with
+        | :? ArgumentException as e -> printfn "%s" e.Message
+
+    try
+        FieldElement.Create 19 17 |> ignore 
+    with
+        | :? ArgumentException as e -> printfn "%s" e.Message
+
+    let p1 = Point.Create -1 -1 5 7
+    try
+        Point.Create -1 -2 5 7 |> ignore
+    with
+        | :? ArgumentException as e -> printfn "%s" e.Message
+
+    let p2 = Point.Create -1 1 5 7
+    printfn $"{p1} + {p2} = {p1 + p2}"
+    
+    let p3 = Point.Create 2 5 5 7
+    printfn $"{p3} + {p1} = {p3 + p1}"
+
+    printfn $"{p1} + {p1} = {p1 + p1}"
 
     0 // return an integer exit code
