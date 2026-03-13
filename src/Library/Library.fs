@@ -26,8 +26,13 @@ type FieldElement = private { num: int; prime: int } with
         { num = (a.num * b.num) % a.prime; prime = a.prime }
     static member ( *^ ) (a: FieldElement, e) =
         let n = (e % (a.prime - 1) + (a.prime - 1)) % (a.prime - 1) 
-        let nn = (pown a.num n) % a.prime
+        let bn = bigint(a.num)
+        let nn = int((pown bn n) % bigint(a.prime))
         { num = nn; prime = a.prime }
+    static member (/) (a, b: FieldElement) =
+        if a.prime <> b.prime then
+            failwith "Cannot divide two numbers in different Fields" 
+        a * (b *^ -1)
 
 type Point = private { x: int option; y: int option; a: int; b: int  } with
     member this.X = this.x

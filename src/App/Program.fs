@@ -36,6 +36,17 @@ let main args =
     printfn "%A ** 12 == %A" e (e *^ 12)
     printfn "%A ** -3 = %A == %A ** 9 = %A: %b" c (c *^ -3) c (c *^ 9) (c *^ -3 = c *^ 9)
 
+    let g = FieldElement.Create 8 13
+    printfn "%A ** -3 = %A == %A" a (a *^ -3) ((a *^ -3) = g)
+    let da = FieldElement.Create 3 31
+    let db = FieldElement.Create 24 31
+    let dc = FieldElement.Create 17 31
+    let dd = FieldElement.Create 4 31
+    let de = FieldElement.Create 11 31
+    // printfn "%A / %A = %A" da db (da / db)
+    printfn "%A ** -3 = %A" dc (dc *^ -3)
+    printfn "%A ** -4 * %A = %A" dd de ((dd *^ -4) * de)
+
     try
         FieldElement.Create -2 17 |> ignore 
     with
@@ -59,5 +70,10 @@ let main args =
     printfn $"{p3} + {p1} = {p3 + p1}"
 
     printfn $"{p1} + {p1} = {p1 + p1}"
+
+    // let a = FieldElement.Create 0 223
+    // let b = FieldElement.Create 7 223
+    // let x = FieldElement.Create 192 223
+    // let y = FieldElement.Create 105 223
 
     0 // return an integer exit code
