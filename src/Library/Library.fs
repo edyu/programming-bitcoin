@@ -13,17 +13,21 @@ type FieldElement = private { num: int; prime: int } with
             { num = Num; prime = Prime }
     static member (+) (a, b: FieldElement) =
         if a.prime <> b.prime then
-            failwith "Cannot add two numbers in different Fields" 
+            failwith "Cannot add two numbers in different Fields"
         { num = (a.num + b.num) % a.prime; prime = a.prime }
     static member (-) (a, b: FieldElement) =
         if a.prime <> b.prime then
-            failwith "Cannot subtract two numbers in different Fields" 
+            failwith "Cannot subtract two numbers in different Fields"
         let d = (a.num - b.num + a.prime) % a.prime
         { num = d; prime = a.prime }
     static member (*) (a, b: FieldElement) =
         if a.prime <> b.prime then
-            failwith "Cannot multiply two numbers in different Fields" 
+            failwith "Cannot multiply two numbers in different Fields"
         { num = (a.num * b.num) % a.prime; prime = a.prime }
+    static member (*) (a: FieldElement, b: int) =
+        { num = (a.num * b) % a.prime; prime = a.prime }
+    static member (*) (a: int, b: FieldElement) =
+        b * a
     static member ( *^ ) (a: FieldElement, e) =
         let n = (e % (a.prime - 1) + (a.prime - 1)) % (a.prime - 1) 
         let bn = bigint(a.num)
@@ -31,25 +35,25 @@ type FieldElement = private { num: int; prime: int } with
         { num = nn; prime = a.prime }
     static member (/) (a, b: FieldElement) =
         if a.prime <> b.prime then
-            failwith "Cannot divide two numbers in different Fields" 
+            failwith "Cannot divide two numbers in different Fields"
         a * (b *^ -1)
 
-type Point = private { x: int option; y: int option; a: int; b: int  } with
+type IntPoint = private { x: int option; y: int option; a: int; b: int  } with
     member this.X = this.x
     member this.Y = this.y
     member this.A = this.a
     member this.B = this.b
     member this.isInfinity = this.x = None
-    static member CreateInfinity A B =
+    static member Infinity A B =
         { x = None; y = None; a = A; b = B }
     static member Create X Y A B =
         if Y * Y <> X * X * X + A * X + B then
             invalidArg "x y" $"({X}, {Y}) is not on the curve"
         else
             { x = Some X; y = Some Y; a = A; b = B }
-    static member (+) (self, other: Point) =
+    static member (+) (self, other: IntPoint) =
         if self.a <> other.a || self.b <> other.b then
-            failwith $"Points {self}, {other} are not the same curve" 
+            failwith $"Points {self}, {other} are not the same curve"
         match self.x, self.y, other.x, other.y with
             | None, _, _, _ | _, None, _, _  -> other
             | _, _, None, _ | _, _, _, None -> self
@@ -70,3 +74,55 @@ type Point = private { x: int option; y: int option; a: int; b: int  } with
                 { x = Some x; y = Some y; a = self.a; b = self.b }
 
 
+type Point = private { x: FieldElement option; y: FieldElement option; a: FieldElement; b: FieldElement } with
+    member this.X = this.x
+    member this.Y = this.y
+    member this.A = this.a
+    member this.B = this.b
+    member this.isInfinity = this.x = None
+    override this.ToString() =
+        if this.isInfinity then
+            $"Point(Inf,Inf)_{this.a.num}_{this.b.num} FieldElement({this.a.prime})"
+        else
+            match (this.X, this.Y) with
+                | (Some x, Some y) ->
+                    $"Point({x.num},{y.num})_{this.a.num}_{this.b.num} FieldElement({this.a.prime})"
+                | (_, _) -> failwith $"{this} is invalid"
+    static member Infinity A B =
+        { x = None; y = None; a = A; b = B }
+    static member Create X Y A B =
+        if Y * Y <> X * X * X + A * X + B then
+            invalidArg "x y" $"({X}, {Y}) is not on the curve"
+        else
+            { x = Some X; y = Some Y; a = A; b = B }
+    static member (+) (self, other: Point) : Point =
+        if self.a <> other.a || self.b <> other.b then
+            failwith $"Points {self}, {other} are not the same curve"
+        match self.x, self.y, other.x, other.y with
+            | None, _, _, _ | _, None, _, _  -> other
+            | _, _, None, _ | _, _, _, None -> self
+            | Some x1, Some y1, Some x2, Some y2 when x1 = x2 && y1 <> y2 ->
+                { x = None; y = None; a = self.a; b = self.b }
+            | Some x1, Some y1, Some x2, Some y2 when x1 = x2 && y1 = y2 ->
+                if y1.Num = 0 then
+                    { x = None; y = None; a = self.a; b = self.b }
+                else
+                    let s = (3 * x1 * x1 + self.a) / (2 * y1)
+                    let x = s * s - 2 * x1
+                    let y = s * (x1 - x) - y1
+                    { x = Some x; y = Some y; a = self.a; b = self.b }
+            | Some x1, Some y1, Some x2, Some y2 ->
+                let s = (y2 - y1) / (x2 - x1)
+                let x = s * s - x1 - x2
+                let y = s * (x1 - x) - y1
+                { x = Some x; y = Some y; a = self.a; b = self.b }
+    static member (*) (coeff: int, self: Point) : Point =
+        let mutable coef = coeff
+        let mutable current = self
+        let mutable result = Point.Infinity self.A self.B
+        while coef <> 0 do
+            if coef &&& 1 <> 0 then
+                result <- result + current
+            current <- current + current
+            coef <- coef >>> 1
+        result

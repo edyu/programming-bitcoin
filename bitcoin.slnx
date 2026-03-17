@@ -3,4 +3,5 @@
     <Project Path="src/App/App.fsproj" />
     <Project Path="src/Library/Library.fsproj" />
   </Folder>
+  <Project Path="tests/tests.fsproj" />
 </Solution>

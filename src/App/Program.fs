@@ -57,23 +57,56 @@ let main args =
     with
         | :? ArgumentException as e -> printfn "%s" e.Message
 
-    let p1 = Point.Create -1 -1 5 7
+    let p1 = IntPoint.Create -1 -1 5 7
     try
-        Point.Create -1 -2 5 7 |> ignore
+        IntPoint.Create -1 -2 5 7 |> ignore
     with
         | :? ArgumentException as e -> printfn "%s" e.Message
 
-    let p2 = Point.Create -1 1 5 7
+    let p2 = IntPoint.Create -1 1 5 7
     printfn $"{p1} + {p2} = {p1 + p2}"
     
-    let p3 = Point.Create 2 5 5 7
+    let p3 = IntPoint.Create 2 5 5 7
     printfn $"{p3} + {p1} = {p3 + p1}"
 
     printfn $"{p1} + {p1} = {p1 + p1}"
 
-    // let a = FieldElement.Create 0 223
-    // let b = FieldElement.Create 7 223
-    // let x = FieldElement.Create 192 223
-    // let y = FieldElement.Create 105 223
+    let a = FieldElement.Create 0 223
+    let b = FieldElement.Create 7 223
+    let x = FieldElement.Create 192 223
+    let y = FieldElement.Create 105 223
+    let p1 = Point.Create x y a b
+
+    let prime = 223
+    let a = FieldElement.Create 0 prime
+    let b = FieldElement.Create 7 prime
+    let x1 = FieldElement.Create 192 prime
+    let y1 = FieldElement.Create 105 prime
+    let p1 = Point.Create x1 y1 a b
+
+    let x2 = FieldElement.Create 143 prime
+    let y2 = FieldElement.Create 98 prime
+    let p2 = Point.Create x2 y2 a b
+
+    let x3 = FieldElement.Create 47 prime
+    let y3 = FieldElement.Create 71 prime
+    let p3 = Point.Create x3 y3 a b
+
+    let x = FieldElement.Create 15 prime
+    let y = FieldElement.Create 86 prime
+    let p = Point.Create x y a b
+    printfn $"{p+p+p+p+p+p+p}"
+    printfn $"{1*p}"
+    printfn $"{2*p}"
+    printfn $"{7*p}"
+    for s in [1..21] do
+        let result = s * p3
+        match (result.X, result.Y) with
+            | (Some x, Some y) ->
+                printfn $"{s}*(47,71)=({x.Num},{y.Num})"
+            | (None, None) ->
+                printfn $"{s}*(47,71)=(Inf,Inf)"
+            | (_, _) ->
+                printfn $"{s}*(47,71)=({result})"
 
     0 // return an integer exit code
