@@ -175,12 +175,33 @@ let A = S256Field.Create(bigint(0))
 let B = S256Field.Create(bigint(7))
 let N: bigint = bigint_fromhex "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
 
+type Signature = { r: bigint; s: bigint } with
+    override this.ToString() =
+        $"Signature({bigint_tohex this.r},{bigint_tohex this.s})"
+
+let GX = S256Field.Create <| BigInteger.Parse("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", NumberStyles.HexNumber)
+let GY = S256Field.Create <| BigInteger.Parse("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8", NumberStyles.HexNumber)
+
 type S256Point = private { x: S256Field option; y: S256Field option; a: S256Field; b: S256Field } with
+    static member Infinity =
+        { x = None; y = None; a = A; b = B }
+    static member G =
+        { x = Some GX; y = Some GY; a = A; b = B }
     member this.X = this.x
     member this.Y = this.y
     member this.A = this.a
     member this.B = this.b
     member this.isInfinity = this.x = None
+
+    member this.verify z (sign: Signature) =
+        let s_inv = bigint.ModPow(sign.s, (N-bigint(2)), N)
+        let u = z * s_inv % N
+        let v = sign.r * s_inv % N
+        let R = u * S256Point.G + v * this
+        match R.X with
+            | (Some x) -> x.Num = sign.r
+            | _ -> false
+
     override this.ToString() =
         if this.isInfinity then
             $"S256Point(Inf,Inf)"
@@ -189,13 +210,15 @@ type S256Point = private { x: S256Field option; y: S256Field option; a: S256Fiel
                 | (Some x, Some y) ->
                     $"S256Point({x.num},{y.num})"
                 | (_, _) -> failwith $"{this} is invalid"
-    static member Infinity =
-        { x = None; y = None; a = A; b = B }
-    static member Create X Y =
+
+    static member Create x y =
+        let X = S256Field.Create x
+        let Y = S256Field.Create y
         if Y * Y <> X * X * X + A * X + B then
             invalidArg "x y" $"({X}, {Y}) is not on the curve"
         else
             { x = Some X; y = Some Y; a = A; b = B }
+
     static member (+) (self, other: S256Point) : S256Point =
         if self.a <> other.a || self.b <> other.b then
             failwith $"Points {self}, {other} are not the same curve"
@@ -228,7 +251,12 @@ type S256Point = private { x: S256Field option; y: S256Field option; a: S256Fiel
             coef <- coef >>> 1
         result
 
-let GX = S256Field.Create <| BigInteger.Parse("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", NumberStyles.HexNumber)
-let GY = S256Field.Create <| BigInteger.Parse("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8", NumberStyles.HexNumber)
+let verify z r s (p: S256Point) =
+    let s_inv = bigint.ModPow(s, (N-bigint(2)), N)
+    let u = z * s_inv % N
+    let v = r * s_inv % N
+    let R = u * S256Point.G + v * p
+    match R.X with
+        | (Some x) -> x.Num = r
+        | _ -> false
 
-let G = S256Point.Create GX GY
