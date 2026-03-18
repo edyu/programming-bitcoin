@@ -109,4 +109,10 @@ let main args =
             | (_, _) ->
                 printfn $"{s}*(47,71)=({result})"
 
+    printfn "%s" (bigint_tohex(P))
+    printfn "%s" (bigint_tohex(bigint(37)))
+    // let sf = S256Field.Create 7
+    // printfn $"{sf}"
+    printfn "%A" (N*G)
+
     0 // return an integer exit code

@@ -84,3 +84,23 @@ let ``test curve scalar multiplication`` () =
 
     Assert.True(1*p=p)
     Assert.True((7*p).isInfinity)
+
+[<Fact>]
+let ``test order of G is N`` () =
+    Assert.True((N*G).isInfinity)
+
+[<Fact>]
+let ``test verification of signature`` () =
+    let z = bigint_fromhex("bc62d4b80d9e36da29c16c5d4d9f11731f36052c72401a76c23c0fb5a9b74423")
+    let r = bigint_fromhex("37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6")
+    let s = bigint_fromhex("8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec")
+    let px = S256Field.Create <| bigint_fromhex("04519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38cee6a7574")
+    let py = S256Field.Create <| bigint_fromhex("82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4")
+    let point = S256Point.Create px py
+    let s_inv = bigint.ModPow(s, (N-bigint(2)), N)
+    let u = z * s_inv % N
+    let v = r * s_inv % N
+    let R = u * G + v * point
+    match R.X with
+        | (Some x) -> Assert.True(x.Num = r)
+        | _ -> Assert.True(false)

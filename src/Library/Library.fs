@@ -1,6 +1,8 @@
 ﻿module Library
 
 //module ecc
+open System.Numerics
+open System.Globalization
 
 type FieldElement = private { num: int; prime: int } with
     member this.Num = this.num
@@ -73,7 +75,6 @@ type IntPoint = private { x: int option; y: int option; a: int; b: int  } with
                 let y = s * (x1 - x) - y1
                 { x = Some x; y = Some y; a = self.a; b = self.b }
 
-
 type Point = private { x: FieldElement option; y: FieldElement option; a: FieldElement; b: FieldElement } with
     member this.X = this.x
     member this.Y = this.y
@@ -126,3 +127,108 @@ type Point = private { x: FieldElement option; y: FieldElement option; a: FieldE
             current <- current + current
             coef <- coef >>> 1
         result
+
+let bigint_tohex (b: bigint) =
+    let s = b.ToString("X64")
+    let len = String.length(s)
+    s.Substring(len-64, 64)
+
+let bigint_fromhex (hex: string) =
+    let s = if hex[0..1] = "0x" then hex[2..] else hex
+    let lead = System.Int32.Parse(s[0..1], NumberStyles.HexNumber)
+    if lead >= 0x80 then // make sure it's positive
+        BigInteger.Parse("0" + s, NumberStyles.HexNumber)
+    else
+        BigInteger.Parse(s, NumberStyles.HexNumber)
+
+let P: bigint = BigInteger.Pow(2, 256) - BigInteger.Pow(2, 32) - bigint(977)
+let Pminus: bigint = P - bigint(1)
+
+type S256Field = private { num: bigint; prime: bigint } with
+    member this.Num = this.num
+    member this.Prime = this.prime
+    override this.ToString() = this.num.ToString()
+    static member Create Num =
+        if Num >= P || Num  < bigint(0) then
+            invalidArg "Num" $"Num {Num} not in field range 0 to {P-bigint(1)}"
+        else
+            { num = Num; prime = P }
+    static member (+) (a, b: S256Field) =
+        { num = (a.num + b.num) % P; prime = P }
+    static member (-) (a, b: S256Field) =
+        let d = (a.num - b.num + P) % P
+        { num = d; prime = P }
+    static member (*) (a, b: S256Field) =
+        { num = (a.num * b.num) % P; prime = P }
+    static member (*) (a: S256Field, b: int) =
+        { num = (a.num * bigint(b)) % P; prime = P }
+    static member (*) (a: int, b: S256Field) =
+        b * a
+    static member ( *^ ) (a: S256Field, e: bigint) =
+        let n = (e % Pminus + Pminus) % Pminus
+        let nn = BigInteger.ModPow(a.num, n, P)
+        { num = nn; prime = P }
+    static member (/) (a, b: S256Field) =
+        a * (b *^ bigint(-1))
+
+let A = S256Field.Create(bigint(0))
+let B = S256Field.Create(bigint(7))
+let N: bigint = bigint_fromhex "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+
+type S256Point = private { x: S256Field option; y: S256Field option; a: S256Field; b: S256Field } with
+    member this.X = this.x
+    member this.Y = this.y
+    member this.A = this.a
+    member this.B = this.b
+    member this.isInfinity = this.x = None
+    override this.ToString() =
+        if this.isInfinity then
+            $"S256Point(Inf,Inf)"
+        else
+            match (this.X, this.Y) with
+                | (Some x, Some y) ->
+                    $"S256Point({x.num},{y.num})"
+                | (_, _) -> failwith $"{this} is invalid"
+    static member Infinity =
+        { x = None; y = None; a = A; b = B }
+    static member Create X Y =
+        if Y * Y <> X * X * X + A * X + B then
+            invalidArg "x y" $"({X}, {Y}) is not on the curve"
+        else
+            { x = Some X; y = Some Y; a = A; b = B }
+    static member (+) (self, other: S256Point) : S256Point =
+        if self.a <> other.a || self.b <> other.b then
+            failwith $"Points {self}, {other} are not the same curve"
+        match self.x, self.y, other.x, other.y with
+            | None, _, _, _ | _, None, _, _  -> other
+            | _, _, None, _ | _, _, _, None -> self
+            | Some x1, Some y1, Some x2, Some y2 when x1 = x2 && y1 <> y2 ->
+                { x = None; y = None; a = self.a; b = self.b }
+            | Some x1, Some y1, Some x2, Some y2 when x1 = x2 && y1 = y2 ->
+                if y1.Num = bigint(0) then
+                    { x = None; y = None; a = self.a; b = self.b }
+                else
+                    let s = (3 * x1 * x1 + self.a) / (2 * y1)
+                    let x = s * s - 2 * x1
+                    let y = s * (x1 - x) - y1
+                    { x = Some x; y = Some y; a = self.a; b = self.b }
+            | Some x1, Some y1, Some x2, Some y2 ->
+                let s = (y2 - y1) / (x2 - x1)
+                let x = s * s - x1 - x2
+                let y = s * (x1 - x) - y1
+                { x = Some x; y = Some y; a = self.a; b = self.b }
+    static member (*) (coeff: bigint, self: S256Point) : S256Point =
+        let mutable coef = coeff % N
+        let mutable current = self
+        let mutable result = S256Point.Infinity
+        while coef <> bigint(0) do
+            if coef &&& bigint(1) <> bigint(0) then
+                result <- result + current
+            current <- current + current
+            coef <- coef >>> 1
+        result
+
+let GX = S256Field.Create <| BigInteger.Parse("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", NumberStyles.HexNumber)
+let GY = S256Field.Create <| BigInteger.Parse("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8", NumberStyles.HexNumber)
+
+let G = S256Point.Create GX GY
