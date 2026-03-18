@@ -1,18 +1,20 @@
 ﻿open System
 open Library
+open ecc
+open helper
 
 [<EntryPoint>]
 let main args =
     let field = [ 0 .. 18 ]
     let ks = [ 1; 3; 7; 13; 18 ]
-    let fields = [ for k in ks -> List.map (fun x -> (x * k) % 19) field ]
+    let fields = [ for k in ks -> List.map (fun x -> x * k % 19) field ]
 
     for f in fields do
         printfn "%A" (List.sort f)
 
     let field2 = [ 0 .. 19 ]
     let ks2 = [ 1; 3; 7; 13; 18; 6; 4; 10 ]
-    let fields2 = [ for k in ks2 -> List.map (fun x -> (x * k) % 20) field2 ]
+    let fields2 = [ for k in ks2 -> List.map (fun x -> x * k % 20) field2 ]
 
     for f in fields2 do
         printfn "%A" (List.sort f)
@@ -31,13 +33,13 @@ let main args =
     printfn "%A + %A == %A: %b" a b c (a + b = c)
     printfn "%A - %A == %A: %b" d c e (d - c = e)
     printfn "%A * %A == %A: %b" d b e (d * b = e)
-    printfn "%A ** 3 == %A: %b" d f ((d *^ 3) = f)
+    printfn "%A ** 3 == %A: %b" d f (d *^ 3 = f)
     printfn "%A ** 12 == %A" d (d *^ 12)
     printfn "%A ** 12 == %A" e (e *^ 12)
     printfn "%A ** -3 = %A == %A ** 9 = %A: %b" c (c *^ -3) c (c *^ 9) (c *^ -3 = c *^ 9)
 
     let g = FieldElement.Create 8 13
-    printfn "%A ** -3 = %A == %A" a (a *^ -3) ((a *^ -3) = g)
+    printfn "%A ** -3 = %A == %A" a (a *^ -3) (a *^ -3 = g)
     let da = FieldElement.Create 3 31
     let db = FieldElement.Create 24 31
     let dc = FieldElement.Create 17 31
@@ -45,7 +47,7 @@ let main args =
     let de = FieldElement.Create 11 31
     // printfn "%A / %A = %A" da db (da / db)
     printfn "%A ** -3 = %A" dc (dc *^ -3)
-    printfn "%A ** -4 * %A = %A" dd de ((dd *^ -4) * de)
+    printfn "%A ** -4 * %A = %A" dd de (dd *^ -4 * de)
 
     try
         FieldElement.Create -2 17 |> ignore 
@@ -101,17 +103,24 @@ let main args =
     printfn $"{7*p}"
     for s in [1..21] do
         let result = s * p3
-        match (result.X, result.Y) with
-            | (Some x, Some y) ->
+        match result.X, result.Y with
+            | Some x, Some y ->
                 printfn $"{s}*(47,71)=({x.Num},{y.Num})"
-            | (None, None) ->
+            | None, None ->
                 printfn $"{s}*(47,71)=(Inf,Inf)"
-            | (_, _) ->
+            | _, _ ->
                 printfn $"{s}*(47,71)=({result})"
 
-    printfn "%s" (bigint_tohex(P))
-    printfn "%s" (bigint_tohex(bigint(37)))
-    // let sf = S256Field.Create 7
-    // printfn $"{sf}"
+    let e = bytes_to_int <| hash256 "my secret"
+    let z = bytes_to_int <| hash256 "my message" 
+    let k = bigint 1234567890
+    let r = (k * S256Point.G).X
+    let k_inv = bigint.ModPow(k, N - bigint 2, N)
+    let s = (z + r * e) * k_inv % N
+    let point = e * S256Point.G
+    printfn $"{point}"
+    printfn $"{hex z}"
+    printfn $"{hex r}"
+    printfn $"{hex s}"
 
     0 // return an integer exit code
