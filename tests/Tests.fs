@@ -138,3 +138,48 @@ let ``test private key signature`` () =
     let z = rand_bigint bigint.Zero // 2 ** 256
     let sign = pk.Sign z
     Assert.True(pk.Point.Verify z sign)
+
+[<Fact>]
+let ``test public key serialization`` () =
+    let pk1 = PrivateKey.Create <| bigint 5000
+    let pk1u = pk1.Point.Sec false
+    let pk1c = pk1.Point.Sec ()
+    let u1 = S256Point.Parse pk1u
+    let c1 = S256Point.Parse pk1c
+    Assert.True(pk1.Point = c1)
+    Assert.True(pk1.Point = u1)
+    let pk2 = PrivateKey.Create <| bigint.Pow(2018, 5)
+    let pk2u = pk2.Point.Sec false
+    let pk2c = pk2.Point.Sec ()
+    let u2 = S256Point.Parse pk2u
+    let c2 = S256Point.Parse pk2c
+    Assert.True(pk2.Point = c2)
+    Assert.True(pk2.Point = u2)
+    let pk3 = PrivateKey.Create <| bigint_from_hex "0xdeadbeef12345"
+    let pk3u = pk3.Point.Sec false
+    let pk3c = pk3.Point.Sec ()
+    let u3 = S256Point.Parse pk3u
+    let c3 = S256Point.Parse pk3c
+    Assert.True(pk3.Point = c3)
+    Assert.True(pk3.Point = u3)
+
+[<Fact>]
+let ``test public key serialization 2`` () =
+    let pk1 = PrivateKey.Create <| bigint 5001
+    let pk1u = pk1.Point.Sec false
+    let pk1c = pk1.Point.Sec ()
+    let u1 = S256Point.Parse pk1u
+    let c1 = S256Point.Parse pk1c
+    Assert.True((c1 = u1))
+    let pk2 = PrivateKey.Create <| bigint.Pow(2019, 5)
+    let pk2u = pk2.Point.Sec false
+    let pk2c = pk2.Point.Sec ()
+    let u2 = S256Point.Parse pk2u
+    let c2 = S256Point.Parse pk2c
+    Assert.True((c2 = u2))
+    let pk3 = PrivateKey.Create <| bigint_from_hex "0xdeadbeef54321"
+    let pk3u = pk3.Point.Sec false
+    let pk3c = pk3.Point.Sec ()
+    let u3 = S256Point.Parse pk3u
+    let c3 = S256Point.Parse pk3c
+    Assert.True((c3 = u3))

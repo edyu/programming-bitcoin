@@ -190,6 +190,7 @@ module ecc =
     type S256Field = private { num: bigint; prime: bigint } with
         member this.Num = this.num
         member this.Prime = this.prime
+        member this.sqrt = this *^ ((P + bigint.One) / bigint 4)
         override this.ToString() = this.num.ToString()
         static member Create Num =
             if Num >= P || Num  < bigint.Zero then
@@ -235,6 +236,26 @@ module ecc =
         member this.B = this.b
         member this.IsInfinity = this.x = None
 
+        member this.Sec (?compressed0: bool) =
+            let compressed = defaultArg compressed0 true 
+            if compressed then
+                let prefix =
+                    if this.Y.IsEven then
+                        Array.create 1 02uy
+                    else
+                        Array.create 1 03uy
+                Array.concat [
+                        prefix;
+                        helper.bigint_to_bytes this.X;
+                    ]
+            else
+                let prefix = Array.create 1 04uy
+                Array.concat [
+                        prefix;
+                        helper.bigint_to_bytes this.X;
+                        helper.bigint_to_bytes this.Y
+                    ]
+
         member this.Verify z (sign: Signature) =
             let s_inv = bigint.ModPow(sign.s, N - bigint 2, N)
             let u = z * s_inv % N
@@ -278,6 +299,7 @@ module ecc =
                     let x = s * s - x1 - x2
                     let y = s * (x1 - x) - y1
                     { x = Some x; y = Some y; a = self.a; b = self.b }
+
         static member (*) (coeff: bigint, self: S256Point) : S256Point =
             let mutable coef = coeff % N
             let mutable current = self
@@ -288,6 +310,28 @@ module ecc =
                 current <- current + current
                 coef <- coef >>> 1
             result
+
+        static member Parse (sec_bin: Byte[]) =
+            if sec_bin[0] = 4uy then
+                let x = helper.bigint_from_bytes sec_bin[1..32]
+                let y = helper.bigint_from_bytes sec_bin[33..64]
+                S256Point.Create x y
+            else
+                let is_even = sec_bin[0] = 2uy
+                let x = S256Field.Create <| helper.bigint_from_bytes sec_bin[1 ..]
+                // y^2 = x^3 + 7
+                let alpha = x *^ bigint 3 + B
+                let beta = alpha.sqrt
+                let mutable even_beta = beta
+                let mutable odd_beta = beta
+                if beta.Num.IsEven then
+                    odd_beta <- S256Field.Create (P - beta.Num)
+                else
+                    even_beta <- S256Field.Create (P - beta.Num)
+                if is_even then
+                    { x = Some x; y = Some even_beta; a = A; b = B }
+                else
+                    { x = Some x; y = Some odd_beta; a = A; b = B }
 
     type PrivateKey = private { secret: bigint; point: S256Point } with
         member this.Point = this.point

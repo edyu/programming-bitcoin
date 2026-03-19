@@ -111,4 +111,17 @@ let main args =
             | _, _ ->
                 printfn $"{s}*(47,71)=({result})"
 
+    let pk1 = PrivateKey.Create <| bigint 5000
+    printfn "sec1.un=%A" (bytes_to_hex <| pk1.Point.Sec false)
+    printfn "sec1=%A" (bytes_to_hex <| pk1.Point.Sec true)
+    printfn "parsed1.u=%A" (S256Point.Parse <| pk1.Point.Sec false)
+    printfn "parsed1.c=%A" (S256Point.Parse <| pk1.Point.Sec true)
+    let pk2 = PrivateKey.Create <| bigint.Pow(2018, 5)
+    printfn "sec2.un=%A" (bytes_to_hex <| pk2.Point.Sec false)
+    printfn "sec2=%A" (bytes_to_hex <| pk2.Point.Sec true)
+    printfn "parsed2.u=%A" (S256Point.Parse <| pk2.Point.Sec false)
+    printfn "parsed2.c=%A" (S256Point.Parse <| pk2.Point.Sec true)
+    let pk3 = PrivateKey.Create <| bigint_from_hex "0xdeadbeef12345"
+    printfn "sec3=%A" (bytes_to_hex <| pk3.Point.Sec ())
+
     0 // return an integer exit code
