@@ -132,7 +132,11 @@ let main args =
 
     let pk1 = PrivateKey.Create <| bigint 5002
     let p1 = pk1.Point
-    let p1ut = p1.Address(false, true)  
+    let p1ut = p1.Address(false, true)
     printfn $"{p1ut}"
+
+    let pk1 = PrivateKey.Create <| bigint 5003
+    let wif1 = pk1.Wif(true, true)
+    printfn $"{wif1}"
 
     0 // return an integer exit code

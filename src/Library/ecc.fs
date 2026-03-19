@@ -208,6 +208,14 @@ type PrivateKey = private { secret: bigint; point: S256Point } with
                 v <- HMACSHA256.HashData(k, v)
         result
 
+    member this.Wif (?compressed0: bool, ?testnet0: bool) =
+        let compressed = defaultArg compressed0 true
+        let testnet = defaultArg testnet0 false
+        let bytes = helper.bigint_to_bytes this.secret
+        let prefix = if testnet then [| 0xefuy |] else [| 0x80uy |]
+        let suffix = if compressed then [| 0x01uy |] else [||]
+        helper.base58_checksum <| Array.concat [ prefix; bytes; suffix ]
+
     member this.Sign z =
         let k = this.deterministic_k z
         let r = (k * S256Point.G).X

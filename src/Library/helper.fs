@@ -97,3 +97,17 @@ let base58 (s: byte[]) =
 
 let base58_checksum (s: byte[]) =
     base58 <| Array.concat [ s; (hash256 s)[0..3] ]
+
+let little_endian_to_int (bytes: byte[]) =
+    if not BitConverter.IsLittleEndian then
+        Array.Reverse bytes
+    BitConverter.ToInt32(bytes)
+
+let int_to_little_endian (i: int, n: int) =
+    let result = Array.create n 0uy
+    let bytes = BitConverter.GetBytes i
+    let len = min bytes.Length n
+    Array.Copy(bytes, result, len)
+    if not BitConverter.IsLittleEndian then
+        Array.Reverse result
+    result
