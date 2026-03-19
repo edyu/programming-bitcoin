@@ -111,16 +111,4 @@ let main args =
             | _, _ ->
                 printfn $"{s}*(47,71)=({result})"
 
-    let e = bytes_to_int <| hash256 "my secret"
-    let z = bytes_to_int <| hash256 "my message" 
-    let k = bigint 1234567890
-    let r = (k * S256Point.G).X
-    let k_inv = bigint.ModPow(k, N - bigint 2, N)
-    let s = (z + r * e) * k_inv % N
-    let point = e * S256Point.G
-    printfn $"{point}"
-    printfn $"{hex z}"
-    printfn $"{hex r}"
-    printfn $"{hex s}"
-
     0 // return an integer exit code

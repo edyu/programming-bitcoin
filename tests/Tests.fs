@@ -85,11 +85,11 @@ let ``test curve scalar multiplication`` () =
     let p = Point.Create x y a b
 
     Assert.True(1*p=p)
-    Assert.True((7*p).isInfinity)
+    Assert.True((7*p).IsInfinity)
 
 [<Fact>]
 let ``test order of G is N`` () =
-    Assert.True((N*S256Point.G).isInfinity)
+    Assert.True((N*S256Point.G).IsInfinity)
 
 [<Fact>]
 let ``test verification of signature`` () =
@@ -99,7 +99,7 @@ let ``test verification of signature`` () =
     let px = bigint_from_hex("04519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38cee6a7574")
     let py = bigint_from_hex("82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4")
     let point = S256Point.Create px py
-    Assert.True(point.verify z { r = r; s = s })
+    Assert.True(point.Verify z { r = r; s = s })
 
 [<Fact>]
 let ``test verification of signature 1`` () =
@@ -109,7 +109,7 @@ let ``test verification of signature 1`` () =
     let px = bigint_from_hex("887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c")
     let py = bigint_from_hex("61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34")
     let point = S256Point.Create px py
-    Assert.True(point.verify z { r = r; s = s })
+    Assert.True(point.Verify z { r = r; s = s })
 
 [<Fact>]
 let ``test verification of signature 2`` () =
@@ -119,4 +119,22 @@ let ``test verification of signature 2`` () =
     let px = bigint_from_hex("887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c")
     let py = bigint_from_hex("61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34")
     let point = S256Point.Create px py
-    Assert.True(point.verify z { r = r; s = s })
+    Assert.True(point.Verify z { r = r; s = s })
+
+[<Fact>]
+let ``test signature`` () =
+    let e = bigint_from_bytes <| hash256 "my secret"
+    let pk = PrivateKey.Create e
+    let k = bigint 1234567890
+    let z = bigint_from_bytes <| hash256 "my message"
+    let k_inv = bigint.ModPow(k, N - bigint 2, N)
+    let r = (k * S256Point.G).X
+    let s = (z + r * e) * k_inv % N
+    Assert.True(pk.Point.Verify z { r = r; s = s})
+
+[<Fact>]
+let ``test private key signature`` () =
+    let pk = PrivateKey.Create (rand_bigint N)
+    let z = rand_bigint bigint.Zero // 2 ** 256
+    let sign = pk.Sign z
+    Assert.True(pk.Point.Verify z sign)

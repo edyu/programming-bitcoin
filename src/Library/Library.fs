@@ -12,7 +12,7 @@ module helper =
         let len = String.length s
         let mutable ss = s.Substring(len-64, 64)
         if not lead then
-            while ss.StartsWith("0") do
+            while ss.StartsWith "0" do
                 ss <- ss[1..]
         if prefix then
             "0x" + ss
@@ -39,8 +39,23 @@ module helper =
     let bytes_to_hex bytes =
         BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()
 
-    let bytes_to_int bytes =
+    let bigint_from_bytes bytes =
         bytes_to_hex bytes |> bigint_from_hex
+
+    let bigint_to_bytes (i: bigint) =
+        let result = Array.create 32 0uy
+        let bytes = i.ToByteArray()
+        let len = min bytes.Length 32
+        Array.Copy(bytes, result, len)
+        Array.Reverse result
+        result
+
+    let rand_bigint (max: bigint) =
+        let b = RandomNumberGenerator.GetBytes 32
+        if max <= bigint.Zero then
+            bigint_from_bytes b
+        else
+            bigint_from_bytes b % max
 
 type FieldElement = private { num: int; prime: int } with
     member this.Num = this.num
@@ -83,7 +98,7 @@ type IntPoint = private { x: int option; y: int option; a: int; b: int  } with
     member this.Y = this.y
     member this.A = this.a
     member this.B = this.b
-    member this.isInfinity = this.x = None
+    member this.IsInfinity = this.x = None
     static member Infinity A B =
         { x = None; y = None; a = A; b = B }
     static member Create X Y A B =
@@ -118,9 +133,9 @@ type Point = private { x: FieldElement option; y: FieldElement option; a: FieldE
     member this.Y = this.y
     member this.A = this.a
     member this.B = this.b
-    member this.isInfinity = this.x = None
+    member this.IsInfinity = this.x = None
     override this.ToString() =
-        if this.isInfinity then
+        if this.IsInfinity then
             $"Point(Inf,Inf)_{this.a.num}_{this.b.num} FieldElement({this.a.prime})"
         else
             match this.X, this.Y with
@@ -168,15 +183,17 @@ type Point = private { x: FieldElement option; y: FieldElement option; a: FieldE
 
 module ecc =
     let P: bigint = BigInteger.Pow(2, 256) - BigInteger.Pow(2, 32) - bigint 977
-    let Pminus: bigint = P - bigint 1
+    let Pminus: bigint = P - bigint.One
+
+    let N: bigint = helper.bigint_from_hex "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
 
     type S256Field = private { num: bigint; prime: bigint } with
         member this.Num = this.num
         member this.Prime = this.prime
         override this.ToString() = this.num.ToString()
         static member Create Num =
-            if Num >= P || Num  < bigint 0 then
-                invalidArg "Num" $"Num {Num} not in field range 0 to {P - bigint 1}"
+            if Num >= P || Num  < bigint.Zero then
+                invalidArg "Num" $"Num {Num} not in field range 0 to {P - bigint.One}"
             else
                 { num = Num; prime = P }
         static member (+) (a, b: S256Field) =
@@ -197,10 +214,8 @@ module ecc =
         static member (/) (a, b: S256Field) =
             a * (b *^ bigint -1)
 
-    let A = S256Field.Create(bigint 0)
+    let A = S256Field.Create bigint.Zero
     let B = S256Field.Create(bigint 7)
-
-    let N: bigint = helper.bigint_from_hex "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
 
     let GX = S256Field.Create <| BigInteger.Parse("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", NumberStyles.HexNumber)
     let GY = S256Field.Create <| BigInteger.Parse("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8", NumberStyles.HexNumber)
@@ -218,18 +233,18 @@ module ecc =
         member this.Y = (Option.get this.y).Num
         member this.A = this.a
         member this.B = this.b
-        member this.isInfinity = this.x = None
+        member this.IsInfinity = this.x = None
 
-        member this.verify z (sign: Signature) =
+        member this.Verify z (sign: Signature) =
             let s_inv = bigint.ModPow(sign.s, N - bigint 2, N)
             let u = z * s_inv % N
             let v = sign.r * s_inv % N
             let R = u * S256Point.G + v * this
-            if R.isInfinity then false
+            if R.IsInfinity then false
             else R.X = sign.r
 
         override this.ToString() =
-            if this.isInfinity then
+            if this.IsInfinity then
                 $"S256Point(Inf,Inf)"
             else
                 $"S256Point({helper.bigint_to_hex this.X}, {helper.bigint_to_hex this.Y})"
@@ -251,7 +266,7 @@ module ecc =
                 | Some x1, Some y1, Some x2, Some y2 when x1 = x2 && y1 <> y2 ->
                     { x = None; y = None; a = self.a; b = self.b }
                 | Some x1, Some y1, Some x2, Some y2 when x1 = x2 && y1 = y2 ->
-                    if y1.Num = bigint 0 then
+                    if y1.Num = bigint.Zero then
                         { x = None; y = None; a = self.a; b = self.b }
                     else
                         let s = (3 * x1 * x1 + self.a) / (2 * y1)
@@ -267,18 +282,51 @@ module ecc =
             let mutable coef = coeff % N
             let mutable current = self
             let mutable result = S256Point.Infinity
-            while coef <> bigint 0 do
-                if coef &&& bigint 1 <> bigint 0 then
+            while coef <> bigint.Zero do
+                if coef &&& bigint.One <> bigint.Zero then
                     result <- result + current
                 current <- current + current
                 coef <- coef >>> 1
             result
 
-let verify z r s (p: ecc.S256Point) =
-    let s_inv = bigint.ModPow(s, ecc.N - bigint 2, ecc.N)
-    let u = z * s_inv % ecc.N
-    let v = r * s_inv % ecc.N
-    let R = u * ecc.S256Point.G + v * p
-    if R.isInfinity then false
-    else R.X = r
+    type PrivateKey = private { secret: bigint; point: S256Point } with
+        member this.Point = this.point
 
+        member this.hex =
+            helper.bigint_to_hex this.secret
+
+        member private this.deterministic_k z =
+            let mutable k = Array.create 32 0uy
+            let mutable v = Array.create 32 1uy
+            let zz = if z > N then z - N else z
+            let z_bytes = helper.bigint_to_bytes zz
+            let s_bytes = helper.bigint_to_bytes this.secret
+            let zero = Array.create 1 0uy
+            let one = Array.create 1 1uy
+            k <- HMACSHA256.HashData(k, Array.concat [ v; zero; s_bytes; z_bytes ])
+            v <- HMACSHA256.HashData(k, v)
+            k <- HMACSHA256.HashData(k, Array.concat [ v; one; s_bytes; z_bytes ])
+            v <- HMACSHA256.HashData(k, v)
+            let mutable loop = true
+            let mutable result = bigint.Zero
+            while loop do
+                v <- HMACSHA256.HashData(k, v)
+                result <- helper.bigint_from_bytes v
+                if result >= bigint.One && result < N then
+                    loop <- false
+                else
+                    k <- HMACSHA256.HashData(k, Array.concat [ v; zero ])
+                    v <- HMACSHA256.HashData(k, v)
+            result
+
+        member this.Sign z =
+            let k = this.deterministic_k z
+            let r = (k * S256Point.G).X
+            let k_inv = bigint.ModPow(k, N - bigint 2, N)
+            let mutable s = (z + r * this.secret) * k_inv % N
+            if s > N / bigint 2 then
+                s <- N - s
+            { r = r; s = s}
+
+        static member Create s =
+            { secret = s; point = s * S256Point.G }
