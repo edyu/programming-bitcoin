@@ -183,3 +183,11 @@ let ``test public key serialization 2`` () =
     let u3 = S256Point.Parse pk3u
     let c3 = S256Point.Parse pk3c
     Assert.True((c3 = u3))
+
+[<Fact>]
+let ``test signature serialization`` () =
+    let r = bigint_from_hex "0x37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6" 
+    let s = bigint_from_hex "0x8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec" 
+    let sign = { r = r; s = s }
+    let der = bytes_from_hex "3045022037206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c60221008ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec"
+    Assert.True(sign.Der = der)

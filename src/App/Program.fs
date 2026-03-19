@@ -124,4 +124,9 @@ let main args =
     let pk3 = PrivateKey.Create <| bigint_from_hex "0xdeadbeef12345"
     printfn "sec3=%A" (bytes_to_hex <| pk3.Point.Sec ())
 
+    let r = bigint_from_hex "0x37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6" 
+    let s = bigint_from_hex "0x8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec" 
+    let sign = { r = r; s = s }
+    printfn "der=%A" (bytes_to_hex sign.Der)
+
     0 // return an integer exit code

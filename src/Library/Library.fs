@@ -39,6 +39,9 @@ module helper =
     let bytes_to_hex bytes =
         BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()
 
+    let bytes_from_hex (hex: string) =
+        Convert.FromHexString hex
+
     let bigint_from_bytes bytes =
         bytes_to_hex bytes |> bigint_from_hex
 
@@ -56,6 +59,13 @@ module helper =
             bigint_from_bytes b
         else
             bigint_from_bytes b % max
+
+    let lstrip (bytes: byte[]) (pre: byte) : byte[] =
+        let index = Array.FindIndex(bytes, fun b -> b <> pre)
+        if index = -1 then
+            Array.Empty()
+        else
+            bytes[index..]
 
 type FieldElement = private { num: int; prime: int } with
     member this.Num = this.num
@@ -224,6 +234,18 @@ module ecc =
     type Signature = { r: bigint; s: bigint } with
         override this.ToString() =
             $"Signature({helper.bigint_to_hex this.r},{helper.bigint_to_hex this.s})"
+        member this.Der =
+            let mutable rbin = helper.bigint_to_bytes this.r
+            rbin <- helper.lstrip rbin 0uy
+            if rbin[0] >= 0x80uy then
+                rbin <- Array.concat [ [| 0uy |]; rbin ]
+            let mutable result = Array.concat [ [| 2uy; byte rbin.Length |]; rbin ]
+            let mutable sbin = helper.bigint_to_bytes this.s
+            sbin <- helper.lstrip sbin 0uy
+            if sbin[0] >= 0x80uy then
+                sbin <- Array.concat [ [| 0uy |]; sbin ]
+            result <- Array.concat [ result; [| 2uy; byte sbin.Length |]; sbin ]
+            Array.concat [ [| 0x30uy; byte result.Length |]; result ]
 
     type S256Point = private { x: S256Field option; y: S256Field option; a: S256Field; b: S256Field } with
         static member Infinity =
@@ -311,7 +333,7 @@ module ecc =
                 coef <- coef >>> 1
             result
 
-        static member Parse (sec_bin: Byte[]) =
+        static member Parse (sec_bin: byte[]) =
             if sec_bin[0] = 4uy then
                 let x = helper.bigint_from_bytes sec_bin[1..32]
                 let y = helper.bigint_from_bytes sec_bin[33..64]
