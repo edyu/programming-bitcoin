@@ -123,10 +123,10 @@ let ``test verification of signature 2`` () =
 
 [<Fact>]
 let ``test signature`` () =
-    let e = bigint_from_bytes <| hash256 "my secret"
+    let e = bigint_from_bytes <| hash256_string "my secret"
     let pk = PrivateKey.Create e
     let k = bigint 1234567890
-    let z = bigint_from_bytes <| hash256 "my message"
+    let z = bigint_from_bytes <| hash256_string "my message"
     let k_inv = bigint.ModPow(k, N - bigint 2, N)
     let r = (k * S256Point.G).X
     let s = (z + r * e) * k_inv % N
@@ -182,7 +182,7 @@ let ``test public key serialization 2`` () =
     let pk3c = pk3.Point.Sec ()
     let u3 = S256Point.Parse pk3u
     let c3 = S256Point.Parse pk3c
-    Assert.True((c3 = u3))
+    Assert.True <| (c3 = u3)
 
 [<Fact>]
 let ``test signature serialization`` () =
@@ -191,3 +191,19 @@ let ``test signature serialization`` () =
     let sign = { r = r; s = s }
     let der = bytes_from_hex "3045022037206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c60221008ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec"
     Assert.True(sign.Der = der)
+    Assert.True(sign.Der = der)
+
+[<Fact>]
+let ``test base58`` () =
+    let h1 = "7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d" 
+    let h2 = "eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c"
+    let h3 = "c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6"
+    let h1b = bytes_from_hex h1
+    let h2b = bytes_from_hex h2
+    let h3b = bytes_from_hex h3
+    let h158 = base58 h1b
+    let h258 = base58 h2b
+    let h358 = base58 h3b
+    Assert.True <| (h158 = "9MA8fRQrT4u8Zj8ZRd6MAiiyaxb2Y1CMpvVkHQu5hVM6")
+    Assert.True <| (h258 = "4fE3H2E6XMp4SsxtwinF7w9a34ooUrwWe4WsW1458Pd")
+    Assert.True <| (h358 = "EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7")
