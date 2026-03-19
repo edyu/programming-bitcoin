@@ -55,7 +55,7 @@ module helper =
 
     let rand_bigint (max: bigint) =
         let b = RandomNumberGenerator.GetBytes 32
-        if max <= bigint.Zero then
+        if max <= 0I then
             bigint_from_bytes b
         else
             bigint_from_bytes b % max
@@ -66,6 +66,22 @@ module helper =
             Array.Empty()
         else
             bytes[index..]
+
+    let BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+    let base58 (s: byte[]) =
+        let mutable count = Array.FindIndex(s, fun b -> b <> 0uy)
+        if count < 0 then count <- 0
+        let mutable num = bigint_from_bytes s
+        let prefix = String.replicate count "1"
+        let mutable result = ""
+        let mutable rem = 0I
+        while num > 0I do
+            let (q, r) = bigint.DivRem(num, 58)
+            num <- q
+            rem <- r
+            result <- string BASE58_ALPHABET[int rem] + result
+        prefix + result
 
 type FieldElement = private { num: int; prime: int } with
     member this.Num = this.num
@@ -192,19 +208,19 @@ type Point = private { x: FieldElement option; y: FieldElement option; a: FieldE
         result
 
 module ecc =
-    let P: bigint = BigInteger.Pow(2, 256) - BigInteger.Pow(2, 32) - bigint 977
-    let Pminus: bigint = P - bigint.One
+    let P: bigint = BigInteger.Pow(2, 256) - BigInteger.Pow(2, 32) - 977I
+    let Pminus: bigint = P - 1I
 
     let N: bigint = helper.bigint_from_hex "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
 
     type S256Field = private { num: bigint; prime: bigint } with
         member this.Num = this.num
         member this.Prime = this.prime
-        member this.sqrt = this *^ ((P + bigint.One) / bigint 4)
+        member this.sqrt = this *^ ((P + 1I) / 4I)
         override this.ToString() = this.num.ToString()
         static member Create Num =
-            if Num >= P || Num  < bigint.Zero then
-                invalidArg "Num" $"Num {Num} not in field range 0 to {P - bigint.One}"
+            if Num >= P || Num  < 0I then
+                invalidArg "Num" $"Num {Num} not in field range 0 to {P-1I}"
             else
                 { num = Num; prime = P }
         static member (+) (a, b: S256Field) =
@@ -223,10 +239,10 @@ module ecc =
             let nn = BigInteger.ModPow(a.num, n, P)
             { num = nn; prime = P }
         static member (/) (a, b: S256Field) =
-            a * (b *^ bigint -1)
+            a * (b *^ -1I)
 
-    let A = S256Field.Create bigint.Zero
-    let B = S256Field.Create(bigint 7)
+    let A = S256Field.Create 0I
+    let B = S256Field.Create 7I
 
     let GX = S256Field.Create <| BigInteger.Parse("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", NumberStyles.HexNumber)
     let GY = S256Field.Create <| BigInteger.Parse("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8", NumberStyles.HexNumber)
@@ -279,7 +295,7 @@ module ecc =
                     ]
 
         member this.Verify z (sign: Signature) =
-            let s_inv = bigint.ModPow(sign.s, N - bigint 2, N)
+            let s_inv = bigint.ModPow(sign.s, N - 2I, N)
             let u = z * s_inv % N
             let v = sign.r * s_inv % N
             let R = u * S256Point.G + v * this
@@ -309,7 +325,7 @@ module ecc =
                 | Some x1, Some y1, Some x2, Some y2 when x1 = x2 && y1 <> y2 ->
                     { x = None; y = None; a = self.a; b = self.b }
                 | Some x1, Some y1, Some x2, Some y2 when x1 = x2 && y1 = y2 ->
-                    if y1.Num = bigint.Zero then
+                    if y1.Num = 0I then
                         { x = None; y = None; a = self.a; b = self.b }
                     else
                         let s = (3 * x1 * x1 + self.a) / (2 * y1)
@@ -326,8 +342,8 @@ module ecc =
             let mutable coef = coeff % N
             let mutable current = self
             let mutable result = S256Point.Infinity
-            while coef <> bigint.Zero do
-                if coef &&& bigint.One <> bigint.Zero then
+            while coef <> 0I do
+                if coef &&& 1I <> 0I then
                     result <- result + current
                 current <- current + current
                 coef <- coef >>> 1
@@ -342,7 +358,7 @@ module ecc =
                 let is_even = sec_bin[0] = 2uy
                 let x = S256Field.Create <| helper.bigint_from_bytes sec_bin[1 ..]
                 // y^2 = x^3 + 7
-                let alpha = x *^ bigint 3 + B
+                let alpha = x *^ 3I + B
                 let beta = alpha.sqrt
                 let mutable even_beta = beta
                 let mutable odd_beta = beta
@@ -374,11 +390,11 @@ module ecc =
             k <- HMACSHA256.HashData(k, Array.concat [ v; one; s_bytes; z_bytes ])
             v <- HMACSHA256.HashData(k, v)
             let mutable loop = true
-            let mutable result = bigint.Zero
+            let mutable result = 0I
             while loop do
                 v <- HMACSHA256.HashData(k, v)
                 result <- helper.bigint_from_bytes v
-                if result >= bigint.One && result < N then
+                if result >= 1I && result < N then
                     loop <- false
                 else
                     k <- HMACSHA256.HashData(k, Array.concat [ v; zero ])
@@ -388,9 +404,9 @@ module ecc =
         member this.Sign z =
             let k = this.deterministic_k z
             let r = (k * S256Point.G).X
-            let k_inv = bigint.ModPow(k, N - bigint 2, N)
+            let k_inv = bigint.ModPow(k, N - 2I, N)
             let mutable s = (z + r * this.secret) * k_inv % N
-            if s > N / bigint 2 then
+            if s > N / 2I then
                 s <- N - s
             { r = r; s = s}
 

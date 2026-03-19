@@ -128,5 +128,6 @@ let main args =
     let s = bigint_from_hex "0x8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec" 
     let sign = { r = r; s = s }
     printfn "der=%A" (bytes_to_hex sign.Der)
+    printfn "58=%A" (base58 sign.Der)
 
     0 // return an integer exit code
