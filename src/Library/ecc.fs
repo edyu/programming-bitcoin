@@ -94,7 +94,7 @@ type S256Point = private { x: S256Field option; y: S256Field option; a: S256Fiel
         let compressed = defaultArg compressed0 true
         this.Sec compressed |> helper.hash160
 
-    member this.address (?compressed0: bool, ?testnet0: bool) =
+    member this.Address (?compressed0: bool, ?testnet0: bool) =
         let compressed = defaultArg compressed0 true
         let testnet = defaultArg testnet0 false
         let h160 = this.hash160 compressed

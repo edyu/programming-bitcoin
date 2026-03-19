@@ -207,3 +207,20 @@ let ``test base58`` () =
     Assert.True <| (h158 = "9MA8fRQrT4u8Zj8ZRd6MAiiyaxb2Y1CMpvVkHQu5hVM6")
     Assert.True <| (h258 = "4fE3H2E6XMp4SsxtwinF7w9a34ooUrwWe4WsW1458Pd")
     Assert.True <| (h358 = "EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7")
+
+[<Fact>]
+let ``test address format`` () =
+    let pk1 = PrivateKey.Create <| bigint 5002
+    let p1 = pk1.Point
+    let p1ut = p1.Address(false, true)  
+    Assert.True <| (p1ut = "mmTPbXQFxboEtNRkwfh6K51jvdtHLxGeMA")
+
+    let pk2 = PrivateKey.Create <| bigint.Pow(2020, 5)
+    let p2 = pk2.Point
+    let p2ct = p2.Address(true, true)
+    Assert.True <| (p2ct = "mopVkxp8UhXqRYbCYJsbeE1h1fiF64jcoH")
+
+    let pk3 = PrivateKey.Create <| bigint_from_hex "0x12345deadbeef"
+    let p3 = pk3.Point
+    let p3cm = p3.Address ()
+    Assert.True <| (p3cm = "1F1Pn2y6pDb68E5nYJJeba4TLg2U7B6KF1")

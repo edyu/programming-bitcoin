@@ -130,4 +130,9 @@ let main args =
     printfn "der=%A" (bytes_to_hex sign.Der)
     printfn "58=%A" (base58 sign.Der)
 
+    let pk1 = PrivateKey.Create <| bigint 5002
+    let p1 = pk1.Point
+    let p1ut = p1.Address(false, true)  
+    printfn $"{p1ut}"
+
     0 // return an integer exit code
