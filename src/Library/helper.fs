@@ -3,9 +3,11 @@ module helper
 open System
 open System.Globalization
 open System.IO
+open System.Net.Http
 open System.Numerics
 open System.Security.Cryptography
 open System.Text
+open System.Threading.Tasks
 open Org.BouncyCastle.Crypto.Digests
 
 let private bigint_to_hex_internal (b: bigint) (prefix: bool) (lead: bool)=
@@ -148,3 +150,12 @@ let encode_varint (i: uint64) =
         Array.concat [ [| 0xfeuy |]; int_to_little_endian(i, 4) ]
     else
         Array.concat [ [| 0xffuy |]; int_to_little_endian(i, 8) ]
+
+let get_async (url: string) =
+    async {
+        use client = new HttpClient()
+        let! response = client.GetAsync(url) |> Async.AwaitTask
+        response.EnsureSuccessStatusCode() |> ignore
+        let! body = response.Content.ReadAsStringAsync() |> Async.AwaitTask
+        return body
+    }

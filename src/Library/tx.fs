@@ -1,5 +1,6 @@
 module tx
 
+open System.Collections.Generic
 open System.IO
 
 type Script = { script: byte[] } with
@@ -70,7 +71,8 @@ type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime:
         let testnet = defaultArg testnet0 false
         { version = version; tx_ins = tx_ins; tx_outs = tx_outs; locktime = locktime; testnet = testnet }
 
-    static member Parse (stream: Stream) =
+    static member Parse (stream: Stream, ?testnet0) =
+        let testnet = defaultArg testnet0 false
         let buffer4 = Array.zeroCreate<byte> 4
         let mutable bytesRead = stream.Read(buffer4, 0, 4)
         let version = uint32 <| helper.little_endian_to_int buffer4
@@ -85,10 +87,10 @@ type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime:
         let buffer8 = Array.zeroCreate<byte> 8
         bytesRead <- stream.Read(buffer8, 0, 8)
         let locktime = uint32 <| helper.little_endian_to_int buffer8
-        Tx.Create(version, tx_ins, tx_outs, locktime)
+        Tx.Create(version, tx_ins, tx_outs, locktime, testnet)
 
     member this.hash =
-        helper.hash256 this.Serialize
+        Array.rev <| helper.hash256 this.Serialize
 
     member this.Id =
         helper.bytes_to_hex this.hash
@@ -114,3 +116,21 @@ type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime:
             tx_outs <- Array.concat [ tx_outs; tx_out.Serialize ]
         let locktime = helper.int_to_little_endian(uint64 this.Locktime, 4)
         Array.concat [ version; num_txins; tx_ins; num_txouts; tx_outs; locktime ]
+
+module TxFetcher =
+    let cache = new Dictionary<string, Tx>()
+
+    let url = "https://blockchain.info"
+
+    let fetch tx_id fresh =
+        if fresh || not (cache.ContainsKey tx_id) then
+            let url = $"{url}/rawtx/{tx_id}?format=hex"
+            let response = helper.get_async url |> Async.RunSynchronously
+            let mutable raw = helper.bytes_from_hex response
+            let stream = new MemoryStream(raw)
+            let tx = Tx.Parse stream
+            printfn $"{tx}"
+            if tx.Id <> tx_id then
+                failwith $"not the same id: {tx.Id} vs {tx_id}"
+            cache.Add(tx_id, tx)
+        cache.Item tx_id
