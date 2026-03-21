@@ -30,7 +30,7 @@ type FieldElement = private { num: int; prime: int } with
     static member (*) (a: int, b: FieldElement) =
         b * a
     static member ( *^ ) (a: FieldElement, e) =
-        let n = (e % (a.prime - 1) + (a.prime - 1)) % (a.prime - 1) 
+        let n = (e % (a.prime - 1) + (a.prime - 1)) % (a.prime - 1)
         let bn = bigint a.num
         let nn = int(pown bn n % bigint a.prime)
         { num = nn; prime = a.prime }

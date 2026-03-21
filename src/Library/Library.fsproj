@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="helper.fs" />
     <Compile Include="ecc.fs" />
+    <Compile Include="tx.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 

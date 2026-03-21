@@ -2,6 +2,7 @@ module helper
 
 open System
 open System.Globalization
+open System.IO
 open System.Numerics
 open System.Security.Cryptography
 open System.Text
@@ -43,7 +44,7 @@ let hash160 (input: byte[]) =
     use sha256 = SHA256.Create()
     let bytes = sha256.ComputeHash input
     let ripemd160 = RipeMD160Digest()
-    let result = Array.create 20 0uy
+    let result = Array.zeroCreate 20
     ripemd160.BlockUpdate(bytes, 0, bytes.Length)
     ripemd160.DoFinal(result, 0) |> ignore
     result
@@ -58,7 +59,7 @@ let bigint_from_bytes bytes =
     bytes_to_hex bytes |> bigint_from_hex
 
 let bigint_to_bytes (i: bigint) =
-    let result = Array.create 32 0uy
+    let result = Array.zeroCreate 32
     let bytes = i.ToByteArray()
     let len = min bytes.Length 32
     Array.Copy(bytes, result, len)
@@ -101,13 +102,49 @@ let base58_checksum (s: byte[]) =
 let little_endian_to_int (bytes: byte[]) =
     if not BitConverter.IsLittleEndian then
         Array.Reverse bytes
-    BitConverter.ToInt32(bytes)
+    if bytes.Length = 8 then
+        BitConverter.ToUInt64 bytes
+    else if bytes.Length = 4 then
+        uint64 <| BitConverter.ToUInt32 bytes
+    else if bytes.Length = 2 then
+        uint64 <| BitConverter.ToUInt16 bytes
+    else if bytes.Length = 1 then
+        uint64 <| bytes[0]
+    else
+        uint64 <| BitConverter.ToUInt64 bytes
 
-let int_to_little_endian (i: int, n: int) =
-    let result = Array.create n 0uy
+let int_to_little_endian (i: uint64, n: int) =
+    let result = Array.zeroCreate n
     let bytes = BitConverter.GetBytes i
     let len = min bytes.Length n
     Array.Copy(bytes, result, len)
     if not BitConverter.IsLittleEndian then
         Array.Reverse result
     result
+
+let read_varint (s: Stream) : uint64 =
+    let i = s.ReadByte()
+    if i = 0xfd then
+        let buffer = Array.zeroCreate<byte> 2
+        s.ReadExactly buffer |> ignore
+        little_endian_to_int buffer
+    else if i = 0xfe then
+        let buffer = Array.zeroCreate<byte> 4
+        s.ReadExactly buffer |> ignore
+        little_endian_to_int buffer
+    else if i = 0xff then
+        let buffer = Array.zeroCreate<byte> 8
+        s.ReadExactly buffer |> ignore
+        little_endian_to_int buffer
+    else
+        uint64 i
+
+let encode_varint (i: uint64) =
+    if i < 0xfdUL then
+        [| byte i |]
+    else if i <  0x10000UL then
+        Array.concat [ [| 0xfduy |]; int_to_little_endian(i, 2) ]
+    else if i < 0x100000000UL then
+        Array.concat [ [| 0xfeuy |]; int_to_little_endian(i, 4) ]
+    else
+        Array.concat [ [| 0xffuy |]; int_to_little_endian(i, 8) ]

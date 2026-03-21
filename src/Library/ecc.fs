@@ -71,7 +71,7 @@ type S256Point = private { x: S256Field option; y: S256Field option; a: S256Fiel
     member this.IsInfinity = this.x = None
 
     member this.Sec (?compressed0: bool) =
-        let compressed = defaultArg compressed0 true 
+        let compressed = defaultArg compressed0 true
         if compressed then
             let prefix =
                 if this.Y.IsEven then
@@ -99,7 +99,7 @@ type S256Point = private { x: S256Field option; y: S256Field option; a: S256Fiel
         let testnet = defaultArg testnet0 false
         let h160 = this.hash160 compressed
         let prefix = if testnet then [| 0x6fuy |] else [| 0x00uy |]
-        helper.base58_checksum <| Array.concat [ prefix; h160 ] 
+        helper.base58_checksum <| Array.concat [ prefix; h160 ]
 
     member this.Verify z (sign: Signature) =
         let s_inv = bigint.ModPow(sign.s, N - 2I, N)
