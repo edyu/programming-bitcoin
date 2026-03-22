@@ -122,15 +122,34 @@ module TxFetcher =
 
     let url = "https://blockchain.info"
 
-    let fetch tx_id fresh =
+    let fetch tx_id fresh : Tx =
         if fresh || not (cache.ContainsKey tx_id) then
             let url = $"{url}/rawtx/{tx_id}?format=hex"
             let response = helper.get_async url |> Async.RunSynchronously
             let mutable raw = helper.bytes_from_hex response
             let stream = new MemoryStream(raw)
             let tx = Tx.Parse stream
-            printfn $"{tx}"
             if tx.Id <> tx_id then
                 failwith $"not the same id: {tx.Id} vs {tx_id}"
             cache.Add(tx_id, tx)
         cache.Item tx_id
+
+    let get_prev_tx (tx_in: TxIn) : Tx =
+        fetch (helper.bytes_to_hex <| Array.rev tx_in.PrevTx) false
+
+    let get_output_value (tx_in: TxIn) : uint64 =
+        let prev_tx = get_prev_tx tx_in
+        prev_tx.TxOuts[int tx_in.PrevIndex].Amount
+
+    let get_script_pubkey (tx_in: TxIn) =
+        let prev_tx = get_prev_tx tx_in
+        prev_tx.TxOuts[int tx_in.PrevIndex].ScriptPubKey
+
+    let get_fee (tx: Tx) : uint64 =
+        let mutable input = 0UL
+        let mutable output = 0UL
+        for tx_in in tx.TxIns do
+            input <- input + get_output_value tx_in
+        for tx_out in tx.TxOuts do
+            output <- output + tx_out.Amount
+        input - output

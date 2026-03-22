@@ -266,9 +266,18 @@ let ``test transaction id`` () =
     let bytes = bytes_from_hex "0100000001c997a5e56e104102fa209c6a852dd90660a20b2d9c352423edce25857fcd3704000000004847304402204e45e16932b8af514961a1d3a1a25fdf3f4f7732e9d624c6c61548ab5fb8cd410220181522ec8eca07de4860a4acdd12909d831cc56cbbac4622082221a8768d1d0901ffffffff0200ca9a3b00000000434104ae1a62fe09c5f51b13905f07f06b99a2f7159b2225f374cd378d71302fa28414e7aab37397f554a7df5f142c21c1b7303b8a0626f1baded5c72a704f7e6cd84cac00286bee0000000043410411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3ac00000000"
     use stream = new MemoryStream(bytes)
     let tx = Tx.Parse stream
+    // first satoshi -> hal finney
     Assert.True <| (tx.Id = "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16")
 
 [<Fact>]
 let ``test transaction fetch`` () =
     let tx = TxFetcher.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" false
     Assert.True <| (tx.Id = "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da")
+
+[<Fact>]
+let ``test transaction fee`` () =
+    let tx1 = TxFetcher.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" true
+    Assert.True <| (TxFetcher.get_fee tx1 = 0UL)
+    // pizza
+    let tx2 = TxFetcher.fetch "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d" false
+    Assert.True <| (TxFetcher.get_fee tx2 = 99000000UL)

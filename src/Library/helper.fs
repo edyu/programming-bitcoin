@@ -154,7 +154,7 @@ let encode_varint (i: uint64) =
 let get_async (url: string) =
     async {
         use client = new HttpClient()
-        let! response = client.GetAsync(url) |> Async.AwaitTask
+        let! response = client.GetAsync url |> Async.AwaitTask
         response.EnsureSuccessStatusCode() |> ignore
         let! body = response.Content.ReadAsStringAsync() |> Async.AwaitTask
         return body
