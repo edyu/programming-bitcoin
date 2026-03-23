@@ -252,6 +252,8 @@ let ``test little endian`` () =
     Assert.True (int_to_little_endian(n1, 4) = [| 0x01uy; 0x00uy; 0x00uy; 0x00uy |])
     let n2 = 10011545UL
     Assert.True (int_to_little_endian(n2, 8) = [| 0x99uy; 0xc3uy; 0x98uy; 0x00uy; 0x00uy; 0x00uy; 0x00uy; 0x00uy |])
+    let n3 = 10077080UL
+    Assert.True (int_to_little_endian(n3, 4) = [| 0x98uy; 0xc3uy; 0x99uy; 0x00uy |])
 
 [<Fact>]
 let ``test transaction parsing and serialization`` () =
@@ -281,3 +283,38 @@ let ``test transaction fee`` () =
     // pizza
     let tx2 = TxFetcher.fetch "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d" false
     Assert.True <| (TxFetcher.get_fee tx2 = 99000000UL)
+
+[<Fact>]
+let ``test big endian`` () =
+    let h1 = bytes_from_hex "1000"
+    Assert.True (big_endian_to_int h1 = 4096)
+    let h2 = bytes_from_hex "99c398"
+    Assert.True (big_endian_to_int h2 = 10077080)
+
+    let n1 = 1
+    Assert.True (int_to_big_endian(n1, 2) = [| 0x00uy; 0x01uy |])
+    Assert.True (int_to_big_endian(n1, 1) = [| 0x01uy |])
+    let n2 = 10077080
+    Assert.True (int_to_big_endian(n2, 4) = [| 0x00uy; 0x99uy; 0xc3uy; 0x98uy |])
+    Assert.True (int_to_big_endian(n2, 3) = [| 0x99uy; 0xc3uy; 0x98uy |])
+
+[<Fact>]
+let ``test script parsing and serialization`` () =
+    let bytes = bytes_from_hex "0100000001c997a5e56e104102fa209c6a852dd90660a20b2d9c352423edce25857fcd3704000000004847304402204e45e16932b8af514961a1d3a1a25fdf3f4f7732e9d624c6c61548ab5fb8cd410220181522ec8eca07de4860a4acdd12909d831cc56cbbac4622082221a8768d1d0901ffffffff0200ca9a3b00000000434104ae1a62fe09c5f51b13905f07f06b99a2f7159b2225f374cd378d71302fa28414e7aab37397f554a7df5f142c21c1b7303b8a0626f1baded5c72a704f7e6cd84cac00286bee0000000043410411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3ac00000000"
+    use stream = new MemoryStream(bytes)
+    let tx = Tx.Parse stream
+    let s_bytes = tx.TxIns[0].ScriptSig.Serialize
+    use stream = new MemoryStream(s_bytes)
+    let s = script.Script.Parse stream
+    let s_serialized = s.Serialize
+    Assert.True <| (s_serialized = s_bytes)
+    let s2_bytes = tx.TxOuts[0].ScriptPubKey.Serialize
+    use stream = new MemoryStream(s2_bytes)
+    let s2 = script.Script.Parse stream
+    let s2_serialized = s2.Serialize
+    Assert.True <| (s2_serialized = s2_bytes)
+    let s3_bytes = tx.TxOuts[1].ScriptPubKey.Serialize
+    use stream = new MemoryStream(s3_bytes)
+    let s3 = script.Script.Parse stream
+    let s3_serialized = s3.Serialize
+    Assert.True <| (s3_serialized = s3_bytes)

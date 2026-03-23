@@ -3,19 +3,19 @@ module tx
 open System.Collections.Generic
 open System.IO
 
-type Script = { script: byte[] } with
-    static member Empty =
-        { script = [||] }
-    static member Parse (stream: Stream) =
-        let len = int <| helper.read_varint stream
-        let buffer = Array.zeroCreate<byte> len
-        let bytesRead = stream.Read(buffer, 0, len)
-        { script = buffer }
-    member this.Serialize =
-        Array.concat [ helper.encode_varint <| uint64 this.script.Length; this.script ]
-    override this.ToString() = helper.bytes_to_hex this.script
+// type Script = { script: byte[] } with
+//     static member Empty =
+//         { script = [||] }
+//     static member Parse (stream: Stream) =
+//         let len = int <| helper.read_varint stream
+//         let buffer = Array.zeroCreate<byte> len
+//         let bytesRead = stream.Read(buffer, 0, len)
+//         { script = buffer }
+//     member this.Serialize =
+//         Array.concat [ helper.encode_varint <| uint64 this.script.Length; this.script ]
+//     override this.ToString() = helper.bytes_to_hex this.script
 
-type TxIn = private { prev_tx: byte[]; prev_index: uint32; script_sig: Script; sequence: uint32 } with
+type TxIn = private { prev_tx: byte[]; prev_index: uint32; script_sig: script.Script; sequence: uint32 } with
     member this.PrevTx = this.prev_tx
     member this.PrevIndex = this.prev_index
     member this.ScriptSig = this.script_sig
@@ -28,7 +28,7 @@ type TxIn = private { prev_tx: byte[]; prev_index: uint32; script_sig: Script; s
     override this.ToString (): string =
         $"{helper.bytes_to_hex this.prev_tx}:{this.prev_index}"
     static member Create(prev_tx, prev_index, ?script_sig0, ?sequence0) =
-        let script_sig = defaultArg script_sig0 Script.Empty
+        let script_sig = defaultArg script_sig0 script.Script.Empty
         let sequence = defaultArg sequence0 0xffffffffu
         { prev_tx = prev_tx; prev_index = prev_index; script_sig = script_sig; sequence = sequence }
     static member Parse (stream: Stream) =
@@ -37,12 +37,12 @@ type TxIn = private { prev_tx: byte[]; prev_index: uint32; script_sig: Script; s
         let buffer4 = Array.zeroCreate<byte> 4
         bytesRead <- stream.Read(buffer4, 0, 4)
         let prev_index = uint32 <| helper.little_endian_to_int buffer4
-        let script = Script.Parse stream
+        let script = script.Script.Parse stream
         bytesRead <- stream.Read(buffer4, 0, 4)
         let sequence = uint32 <| helper.little_endian_to_int buffer4
         TxIn.Create(prev_tx, prev_index, script, sequence)
 
-type TxOut = private { amount: uint64; script_pubkey: Script } with
+type TxOut = private { amount: uint64; script_pubkey: script.Script } with
     member this.Amount = this.amount
     member this.ScriptPubKey = this.script_pubkey
     member this.Serialize =
@@ -51,13 +51,13 @@ type TxOut = private { amount: uint64; script_pubkey: Script } with
         Array.concat [ amount; script ]
     override this.ToString() =
         $"{this.amount}:{this.script_pubkey.ToString()}"
-    static member Create (amount: uint64, script_pubkey: Script) =
+    static member Create (amount: uint64, script_pubkey: script.Script) =
         { amount = amount; script_pubkey = script_pubkey }
     static member Parse (stream: Stream) =
         let buffer8 = Array.zeroCreate<byte> 8
         let bytesRead = stream.Read(buffer8, 0, 8)
         let amount = helper.little_endian_to_int buffer8
-        let script = Script.Parse stream
+        let script = script.Script.Parse stream
         TxOut.Create(amount, script)
 
 type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime: uint32; testnet: bool } with

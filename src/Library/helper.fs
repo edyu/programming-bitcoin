@@ -124,6 +124,46 @@ let int_to_little_endian (i: uint64, n: int) =
         Array.Reverse result
     result
 
+let big_endian_to_int (bytes: byte[]) =
+    let input = if BitConverter.IsLittleEndian then bytes |>  Array.rev else bytes
+    if bytes.Length = 1 then
+        int input[0]
+    else if bytes.Length = 2 then
+        int(BitConverter.ToUInt16 input)
+    else if bytes.Length = 4 then
+        int(BitConverter.ToUInt32 input)
+    else if bytes.Length = 8 then
+        int(BitConverter.ToUInt64 input)
+    else
+        let buffer : byte[] = Array.zeroCreate 4
+        let len = min input.Length 4
+        Array.Copy(input, 0, buffer, 0, len)
+        int(BitConverter.ToUInt32 buffer)
+    // let mutable result = 0
+    // for c in bytes do
+    //     result <- result <<< 8
+    //     result <- result + int c
+    // result
+
+let int_to_big_endian (i: int, n: int) =
+    let result = Array.zeroCreate n
+    let bytes : byte[] =
+        if n = 1 then
+            [| byte i |]
+        else if n = 2 then
+            BitConverter.GetBytes(uint16 i)
+        else if n = 4 then
+            BitConverter.GetBytes(uint32 i)
+        else if n = 8 then
+            BitConverter.GetBytes(uint64 i)
+        else
+            BitConverter.GetBytes i
+    let len = min bytes.Length n
+    Array.Copy(bytes, result, len)
+    if BitConverter.IsLittleEndian then
+        Array.Reverse result
+    result
+
 let read_varint (s: Stream) : uint64 =
     let i = s.ReadByte()
     if i = 0xfd then
