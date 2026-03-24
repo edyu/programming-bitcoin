@@ -59,6 +59,32 @@ type Signature = { r: bigint; s: bigint } with
         result <- Array.concat [ result; [| 2uy; byte sbin.Length |]; sbin ]
         Array.concat [ [| 0x30uy; byte result.Length |]; result ]
 
+    static member Parse (sig_bin: byte[]) =
+        use stream = new System.IO.MemoryStream(sig_bin)
+        let prefix = stream.ReadByte()
+        if prefix <> 0x30 then
+            failwith "bad signature"
+        let length = stream.ReadByte()
+        if length + 2 > sig_bin.Length then
+            failwith "bad signature length"
+        let marker = stream.ReadByte() 
+        if marker <> 0x02 then
+            failwith "bad signature"
+        let rlength = stream.ReadByte()
+        let rbin = Array.zeroCreate<byte> rlength
+        let bytesRead = stream.ReadExactly rbin
+        let r = helper.bigint_from_bytes rbin
+        let marker = stream.ReadByte()
+        if marker <> 0x02 then
+            failwith "bad signature"
+        let slength = stream.ReadByte()
+        let sbin = Array.zeroCreate<byte> slength
+        let bytesRead = stream.ReadExactly sbin
+        let s = helper.bigint_from_bytes sbin
+        if rlength + slength + 6 > sig_bin.Length then
+            failwith "signature too long"
+        { r = r; s = s }
+
 type S256Point = private { x: S256Field option; y: S256Field option; a: S256Field; b: S256Field } with
     static member Infinity =
         { x = None; y = None; a = A; b = B }

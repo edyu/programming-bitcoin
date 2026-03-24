@@ -6,7 +6,7 @@ let hex i = true
 
 let encode_num num =
     if num = 0 then
-        [| 0uy |]
+        [||]
     else
         let mutable abs_num = abs num
         let negative = num < 0
@@ -22,75 +22,76 @@ let encode_num num =
                 result <- 0uy :: result
         else if negative then
             result <- (List.head result ||| 0x80uy) :: List.tail result
-        Array.ofList <| result
+        Array.ofList <| List.rev result
 
-let decode_num input =
-    if input = [] then
+let decode_num (bytes: byte[]) : int =
+    if bytes = [||] then
         0
     else
+        let input = Array.rev bytes
         let mutable result = int input[0]
-        let negative = input[0] &&& 0x80uy = 0uy
+        let negative = input[0] &&& 0x80uy <> 0uy
         if negative then
             result <- int(input[0] &&& 0x7fuy)
-        result <- helper.big_endian_to_int <| Array.ofList input[1..]
+        result <- helper.big_endian_to_int <| Array.concat [ [| byte result|]; input[1..] ]
         if negative then
             -result
         else
             result
 
 let op_0 stack =
-    true, encode_num 0 :: stack
+    true, Data (encode_num 0) :: stack
 
 let op_1negate stack =
-    true, encode_num -1 :: stack
+    true, Data (encode_num -1) :: stack
 
 let op_1 stack =
-    true, encode_num 1 :: stack
+    true, Data (encode_num 1) :: stack
 
 let op_2 stack =
-    true, encode_num 2 :: stack
+    true, Data (encode_num 2) :: stack
 
 let op_3 stack =
-    true, encode_num 3 :: stack
+    true, Data (encode_num 3) :: stack
 
 let op_4 stack =
-    true, encode_num 4 :: stack
+    true, Data (encode_num 4) :: stack
 
 let op_5 stack =
-    true, encode_num 5 :: stack
+    true, Data (encode_num 5) :: stack
 
 let op_6 stack =
-    true, encode_num 6 :: stack
+    true, Data (encode_num 6) :: stack
 
 let op_7 stack =
-    true, encode_num 7 :: stack
+    true, Data (encode_num 7) :: stack
 
 let op_8 stack =
-    true, encode_num 8 :: stack
+    true, Data (encode_num 8) :: stack
 
 let op_9 stack =
-    true, encode_num 9 :: stack
+    true, Data (encode_num 9) :: stack
 
 let op_10 stack =
-    true, encode_num 10 :: stack
+    true, Data (encode_num 10) :: stack
 
 let op_11 stack =
-    true, encode_num 11 :: stack
+    true, Data (encode_num 11) :: stack
 
 let op_12 stack =
-    true, encode_num 12 :: stack
+    true, Data (encode_num 12) :: stack
 
 let op_13 stack =
-    true, encode_num 13 :: stack
+    true, Data (encode_num 13) :: stack
 
 let op_14 stack =
-    true, encode_num 14 :: stack
+    true, Data (encode_num 14) :: stack
 
 let op_15 stack =
-    true, encode_num 15 :: stack
+    true, Data (encode_num 15) :: stack
 
 let op_16 stack =
-    true, encode_num 16 :: stack
+    true, Data (encode_num 16) :: stack
 
 let op_nop stack =
     true, stack
@@ -107,7 +108,7 @@ let op_hash256 (stack: Cmd list) =
     else
         match List.head stack with
         | Data bytes -> true, Data (helper.hash256 bytes) :: List.tail stack
-        | _ -> failwith "wrong stack data"
+        | state -> failwith $"wrong stack state: {state}"
 
 let op_hash160 (stack: Cmd list) =
     if stack.IsEmpty then
@@ -115,38 +116,291 @@ let op_hash160 (stack: Cmd list) =
     else
         match List.head stack with
         | Data bytes -> true, Data (helper.hash160 bytes) :: List.tail stack
-        | _ -> failwith "wrong stack data"
+        | state -> failwith $"wrong stack state: {state}"
 
+let op_if (stack: Cmd list) (cmds: Cmd list) =
+    false, stack
+
+let op_notif (stack: Cmd list) (cmds: Cmd list) =
+    false, stack
+
+let op_verify (stack: Cmd list) =
+    if stack.Length < 1 then
+        false, stack
+    else
+        match stack with
+        | Data bytes :: newstack ->
+            if decode_num bytes = 0 then
+                false, newstack
+            else
+                true, newstack
+        | _ -> failwith $"wrong stack state: {stack}"
+
+let op_toaltstack (stack: Cmd list) (altstack: Cmd list) =
+    false, stack
+
+let op_fromaltstack (stack: Cmd list) (altstack: Cmd list) =
+    false, stack
+
+let op_checksig (stack: Cmd list) (zbin: byte[]) =
+    if stack.Length < 2 then
+        false, stack
+    else
+        match stack with
+        | Data sec_pubkey :: Data der_signature :: newstack ->
+            let point = ecc.S256Point.Parse sec_pubkey
+            let signa = ecc.Signature.Parse der_signature
+            let z = helper.bigint_from_bytes zbin
+            if point.Verify z signa then
+                true, Data (encode_num 1) :: newstack
+            else
+                true, Data (encode_num 0) :: newstack
+
+        | _ -> false, stack
+
+let op_checksigverify (stack: Cmd list) (z: byte[]) =
+    let state1, newstack = op_checksig stack z
+    if state1 then
+        op_verify stack
+    else
+        false, newstack
+
+let op_checkmultisig (stack: Cmd list) (z: byte[]) =
+    false, stack
+
+let op_checkmultisigverify (stack: Cmd list) (z: byte[]) =
+    let state1, newstack = op_checkmultisig stack z
+    if state1 then
+        op_verify stack
+    else
+        false, newstack
+
+[<Literal>]
+let OP_0 = 0uy
+[<Literal>]
 let OP_PUSHDATA1 = 76uy
+[<Literal>]
 let OP_PUSHDATA2 = 77uy
+[<Literal>]
+let OP_PUSHDATA4 = 78uy
+[<Literal>]
+let OP_1NEGATE = 79uy
+[<Literal>]
+let OP_1 = 81uy
+[<Literal>]
+let OP_2 = 82uy
+[<Literal>]
+let OP_3 = 83uy
+[<Literal>]
+let OP_4 = 84uy
+[<Literal>]
+let OP_5 = 85uy
+[<Literal>]
+let OP_6 = 86uy
+[<Literal>]
+let OP_7 = 87uy
+[<Literal>]
+let OP_8 = 88uy
+[<Literal>]
+let OP_9 = 89uy
+[<Literal>]
+let OP_10 = 90uy
+[<Literal>]
+let OP_11 = 91uy
+[<Literal>]
+let OP_12 = 92uy
+[<Literal>]
+let OP_13 = 93uy
+[<Literal>]
+let OP_14 = 94uy
+[<Literal>]
+let OP_15 = 95uy
+[<Literal>]
+let OP_16 = 96uy
+[<Literal>]
+let OP_NOP = 97uy
+[<Literal>]
+let OP_IF = 99uy
+[<Literal>]
+let OP_NOTIF = 100uy
+[<Literal>]
+let OP_ELSE = 103uy
+[<Literal>]
+let OP_ENDIF = 104uy
+[<Literal>]
+let OP_VERIFY = 105uy
+[<Literal>]
+let OP_RETURN = 106uy
+[<Literal>]
+let OP_TOALTSTACK = 107uy
+[<Literal>]
+let OP_FROMALTSTACK = 108uy
+[<Literal>]
+let OP_2DROP = 109uy
+[<Literal>]
+let OP_2DUP = 110uy
+[<Literal>]
+let OP_3DUP = 111uy
+[<Literal>]
+let OP_2OVER = 112uy
+[<Literal>]
+let OP_2ROT = 113uy
+[<Literal>]
+let OP_2SWAP = 114uy
+[<Literal>]
+let OP_IFDUP = 115uy
+[<Literal>]
+let OP_DEPTH = 116uy
+[<Literal>]
+let OP_DROP = 117uy
+[<Literal>]
+let OP_DUP = 118uy
+[<Literal>]
+let OP_NIP = 119uy
+[<Literal>]
+let OP_OVER = 120uy
+[<Literal>]
+let OP_PICK = 121uy
+[<Literal>]
+let OP_ROLL = 122uy
+[<Literal>]
+let OP_ROT = 123uy
+[<Literal>]
+let OP_SWAP = 124uy
+[<Literal>]
+let OP_TUCK = 125uy
+[<Literal>]
+let OP_SIZE = 130uy
+[<Literal>]
+let OP_EQUAL = 135uy
+[<Literal>]
+let OP_EQUALVERIFY = 136uy
+[<Literal>]
+let OP_1ADD = 139uy
+[<Literal>]
+let OP_1SUB = 140uy
+[<Literal>]
+let OP_NEGATE = 143uy
+[<Literal>]
+let OP_ABS = 144uy
+[<Literal>]
+let OP_NOT = 145uy
+[<Literal>]
+let OP_0NOTEQUAL = 146uy
+[<Literal>]
+let OP_ADD = 147uy
+[<Literal>]
+let OP_SUB = 148uy
+[<Literal>]
+let OP_MUL = 149uy
+[<Literal>]
+let OP_BOOLAND = 154uy
+[<Literal>]
+let OP_BOOLOR = 155uy
+[<Literal>]
+let OP_NUMEQUAL = 156uy
+[<Literal>]
+let OP_NUMEQUALVERIFY = 157uy
+[<Literal>]
+let OP_NUMNOTEQUAL = 158uy
+[<Literal>]
+let OP_LESSTHAN = 159uy
+[<Literal>]
+let OP_GREATERTHAN = 160uy
+[<Literal>]
+let OP_LESSTHANOREQUAL = 161uy
+[<Literal>]
+let OP_GREATERTHANOREQUAL = 162uy
+[<Literal>]
+let OP_MIN = 163uy
+[<Literal>]
+let OP_MAX = 164uy
+[<Literal>]
+let OP_WITHIN = 165uy
+[<Literal>]
+let OP_RIPEMD160 = 166uy
+[<Literal>]
+let OP_SHA1 = 167uy
+[<Literal>]
+let OP_SHA256 = 168uy
+[<Literal>]
+let OP_HASH160 = 169uy
+[<Literal>]
+let OP_HASH256 = 170uy
+[<Literal>]
+let OP_CODESEPARATOR = 171uy
+[<Literal>]
+let OP_CHECKSIG = 172uy
+[<Literal>]
+let OP_CHECKSIGVERIFY = 173uy
+[<Literal>]
+let OP_CHECKMULTISIG = 174uy
+[<Literal>]
+let OP_CHECKMULTISIGVERIFY = 175uy
+[<Literal>]
+let OP_NOP1 = 176uy
+[<Literal>]
+let OP_CHECKLOCKTIMEVERIFY = 177uy
+[<Literal>]
+let OP_CHECKSEQUENCEVERIFY = 178uy
+[<Literal>]
+let OP_NOP4 = 179uy
+[<Literal>]
+let OP_NOP5 = 180uy
+[<Literal>]
+let OP_NOP6 = 181uy
+[<Literal>]
+let OP_NOP7 = 182uy
+[<Literal>]
+let OP_NOP8 = 183uy
+[<Literal>]
+let OP_NOP9 = 184uy
+[<Literal>]
+let OP_NOP10 = 185uy
 
-// let op_code_functions =
-//     Map [
-//        0, op_0;
-//     79, op_1negate;
-//     81, op_1;
-//     82, op_2;
-//     83, op_3;
-//     84, op_4;
-//     85, op_5;
-//     86, op_6;
-//     87, op_7;
-//     88, op_8;
-//     89, op_9;
-//     90, op_10;
-//     91, op_11;
-//     92, op_12;
-//     93, op_13;
-//     94, op_14;
-//     95, op_15;
-//     96, op_16;
-//     97, op_no;
-//     99, op_if;
-//     100, op_notif;
+let code_if_functions =
+    Map [
+        OP_IF, op_if;
+        OP_NOTIF, op_notif;
+    ]
+
+let code_sig_functions =
+    Map [
+        OP_CHECKSIG, op_checksig;
+        OP_CHECKSIGVERIFY, op_checksigverify;
+        OP_CHECKMULTISIG, op_checkmultisig;
+        OP_CHECKMULTISIGVERIFY, op_checkmultisigverify;
+    ]
+
+let code_altstack_functions =
+    Map [
+        OP_TOALTSTACK, op_toaltstack;
+        OP_FROMALTSTACK, op_fromaltstack;
+    ]
+
+let code_functions =
+    Map [
+        OP_0, op_0;
+        OP_1NEGATE, op_1negate;
+        OP_1, op_1;
+        OP_2, op_2;
+        OP_3, op_3;
+        84uy, op_4;
+        85uy, op_5;
+        86uy, op_6;
+        87uy, op_7;
+        88uy, op_8;
+        89uy, op_9;
+        90uy, op_10;
+        91uy, op_11;
+        92uy, op_12;
+        93uy, op_13;
+        94uy, op_14;
+        95uy, op_15;
+        96uy, op_16;
+    // 97, op_no;
 //     105, op_verify;
 //     106, op_return;
-//     107, op_toaltstack;
-//     108, op_fromaltstack;
 //     109, op_2drop;
 //     110, op_2dup;
 //     111, op_3dup;
@@ -190,24 +444,20 @@ let OP_PUSHDATA2 = 77uy
 //     165, op_within;
 //     166, op_ripemd160;
 //     167, op_sha1;
-//     168, op_sha256;
-//     169, op_hash160;
-//     170, op_hash256;
-//     172, op_checksig;
-//     173, op_checksigverify;
-//     174, op_checkmultisig;
-//     175, op_checkmultisigverify;
+        // 168, op_sha256;
+        169uy, op_hash160;
+        170uy, op_hash256;
 //     176, op_nop;
 //     177, op_checklocktimeverify;
 //     178, op_checksequenceverify;
-//     179, op_nop;
-//     180, op_nop;
-//     181, op_nop;
-//     182, op_nop;
-//     183, op_nop;
-//     184, op_nop;
-//     185, op_nop;
-//     ]
+        179uy, op_nop;
+        180uy, op_nop;
+        181uy, op_nop;
+        182uy, op_nop;
+        183uy, op_nop;
+        184uy, op_nop;
+        185uy, op_nop;
+    ]
 
 // | op_0 = 0
 // | op_1negate = 79
