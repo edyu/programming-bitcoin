@@ -199,6 +199,8 @@ let OP_NOP9 = 184uy
 [<Literal>]
 let OP_NOP10 = 185uy
 
+type Stack = List<byte[]>
+
 type Cmd = Code of byte | Data of byte[]
 
 let hex i = true
@@ -239,58 +241,58 @@ let decode_num (bytes: byte[]) : int =
             result
 
 let op_0 stack =
-    true, Data (encode_num 0) :: stack
+    true, encode_num 0 :: stack
 
 let op_1negate stack =
-    true, Data (encode_num -1) :: stack
+    true, encode_num -1 :: stack
 
 let op_1 stack =
-    true, Data (encode_num 1) :: stack
+    true, encode_num 1 :: stack
 
 let op_2 stack =
-    true, Data (encode_num 2) :: stack
+    true, encode_num 2 :: stack
 
 let op_3 stack =
-    true, Data (encode_num 3) :: stack
+    true, encode_num 3 :: stack
 
 let op_4 stack =
-    true, Data (encode_num 4) :: stack
+    true, encode_num 4 :: stack
 
 let op_5 stack =
-    true, Data (encode_num 5) :: stack
+    true, encode_num 5 :: stack
 
 let op_6 stack =
-    true, Data (encode_num 6) :: stack
+    true, encode_num 6 :: stack
 
 let op_7 stack =
-    true, Data (encode_num 7) :: stack
+    true, encode_num 7 :: stack
 
 let op_8 stack =
-    true, Data (encode_num 8) :: stack
+    true, encode_num 8 :: stack
 
 let op_9 stack =
-    true, Data (encode_num 9) :: stack
+    true, encode_num 9 :: stack
 
 let op_10 stack =
-    true, Data (encode_num 10) :: stack
+    true, encode_num 10 :: stack
 
 let op_11 stack =
-    true, Data (encode_num 11) :: stack
+    true, encode_num 11 :: stack
 
 let op_12 stack =
-    true, Data (encode_num 12) :: stack
+    true, encode_num 12 :: stack
 
 let op_13 stack =
-    true, Data (encode_num 13) :: stack
+    true, encode_num 13 :: stack
 
 let op_14 stack =
-    true, Data (encode_num 14) :: stack
+    true, encode_num 14 :: stack
 
 let op_15 stack =
-    true, Data (encode_num 15) :: stack
+    true, encode_num 15 :: stack
 
 let op_16 stack =
-    true, Data (encode_num 16) :: stack
+    true, encode_num 16 :: stack
 
 let op_nop stack =
     true, stack
@@ -298,7 +300,7 @@ let op_nop stack =
 let op_fail stack =
     false, stack
 
-let op_if (stack: Cmd list) (cmds: Cmd list) =
+let op_if (stack: Stack) (cmds: Cmd list) =
     if stack.IsEmpty then
         false, stack, cmds
     else
@@ -345,51 +347,45 @@ let op_if (stack: Cmd list) (cmds: Cmd list) =
         if not found then
             false, stack, cmds
         else
-            match List.head stack with
-            | Data n ->
-                if decode_num n = 0 then
-                    true, stack, else_cmds
-                else
-                    true, stack, if_cmds
-            | _ -> false, stack, cmds
+            if decode_num (List.head stack) = 0 then
+                true, stack, else_cmds
+            else
+                true, stack, if_cmds
 
-let op_notif (stack: Cmd list) (cmds: Cmd list) =
+let op_notif (stack: byte[] list) (cmds: Cmd list) =
     false, stack, cmds
 
-let op_verify (stack: Cmd list) =
+let op_verify (stack: Stack) =
     if stack.Length < 1 then
         false, stack
     else
-        match stack with
-        | Data bytes :: newstack ->
-            if decode_num bytes = 0 then
-                false, newstack
-            else
-                true, newstack
-        | _ -> false, stack
+        if decode_num <| List.head stack = 0 then
+            false, List.tail stack
+        else
+            true, List.tail stack
 
-let op_return (stack: Cmd list) =
+let op_return (stack: Stack) =
     false, stack
 
-let op_toaltstack (stack: Cmd list) (altstack: Cmd list) =
+let op_toaltstack (stack: Stack) (altstack: Stack) =
     if stack.IsEmpty then
         false, stack, altstack
     else
         true, List.tail stack, List.head stack :: altstack
 
-let op_fromaltstack (stack: Cmd list) (altstack: Cmd list) =
+let op_fromaltstack (stack: Stack) (altstack: Stack) =
     if altstack.IsEmpty then
         false, stack, altstack
     else
         true, List.head altstack :: stack, List.tail altstack
 
-let op_2drop (stack: Cmd list) =
+let op_2drop (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         true, List.tail <| List.tail stack
 
-let op_2dup (stack: Cmd list) =
+let op_2dup (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
@@ -398,7 +394,7 @@ let op_2dup (stack: Cmd list) =
             true, a :: b :: stack
         | _ -> false, stack
 
-let op_3dup (stack: Cmd list) =
+let op_3dup (stack: Stack) =
     if stack.Length < 3 then
         false, stack
     else
@@ -408,7 +404,7 @@ let op_3dup (stack: Cmd list) =
         | _ -> false, stack
 
 
-let op_2over (stack: Cmd list) =
+let op_2over (stack: Stack) =
     if stack.Length < 4 then
         false, stack
     else
@@ -417,7 +413,7 @@ let op_2over (stack: Cmd list) =
             true, c :: d :: tail
         | _ -> false, stack
 
-let op_2rot (stack: Cmd list) =
+let op_2rot (stack: Stack) =
     if stack.Length < 6 then
         false, stack
     else
@@ -426,7 +422,7 @@ let op_2rot (stack: Cmd list) =
             true, e :: f :: a :: b :: c :: d :: tail
         | _ -> false, stack
 
-let op_2swap (stack: Cmd list) =
+let op_2swap (stack: Stack) =
     if stack.Length < 4 then
         false, stack
     else
@@ -435,34 +431,32 @@ let op_2swap (stack: Cmd list) =
             true, c :: d :: a :: b :: stack
         | _ -> false, stack
 
-let op_ifdup (stack: Cmd list) =
+let op_ifdup (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match stack with
-        | Data n :: _ ->
-            if decode_num n <> 0 then
-                true, Data n :: stack
-            else
-                true, stack
-        | _ -> false, stack
+        let head = List.head stack
+        if decode_num head <> 0 then
+            true, head :: stack
+        else
+            true, stack
 
-let op_depth (stack: Cmd list) =
-    true, Data (encode_num stack.Length) :: stack
+let op_depth (stack: Stack) =
+    true, encode_num stack.Length :: stack
 
-let op_drop (stack: Cmd list) =
+let op_drop (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
         true, List.tail stack
 
-let op_dup (stack: Cmd list) =
+let op_dup (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
         true, List.head stack :: stack
 
-let op_nip (stack: Cmd list) =
+let op_nip (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
@@ -471,7 +465,7 @@ let op_nip (stack: Cmd list) =
             true, a :: tail
         | _ -> false, stack
 
-let op_over (stack: Cmd list) =
+let op_over (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
@@ -480,35 +474,35 @@ let op_over (stack: Cmd list) =
             true, b :: stack
         | _ -> false, stack
 
-let op_pick (stack: Cmd list) =
+let op_pick (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data n :: tail ->
-            let i = decode_num n
-            if i < 0 || i >= tail.Length then
+        | head :: tail ->
+            let n = decode_num head
+            if n < 0 || n >= tail.Length then
                 false, tail
             else
-                let head = List.item i tail
-                true, head :: tail
+                let newhead = List.item n tail
+                true, newhead :: tail
         | _ -> false, stack
 
-let op_roll (stack: Cmd list) =
+let op_roll (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data n :: tail ->
-            let i = decode_num n
-            if i < 0 || i >= tail.Length then
+        | head :: tail ->
+            let n = decode_num head
+            if n < 0 || n >= tail.Length then
                 false, tail
             else
-                let head = List.item i tail
-                true, head :: List.take i tail @ List.skip (i + 1) tail
+                let newhead = List.item n tail
+                true, newhead :: List.take n tail @ List.skip (n + 1) tail
         | _ -> false, stack
 
-let op_rot (stack: Cmd list) =
+let op_rot (stack: Stack) =
     if stack.Length < 3 then
         false, stack
     else
@@ -517,7 +511,7 @@ let op_rot (stack: Cmd list) =
             true, c:: a :: b :: tail
         | _ -> false, stack
 
-let op_swap (stack: Cmd list) =
+let op_swap (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
@@ -526,7 +520,7 @@ let op_swap (stack: Cmd list) =
             true, b :: a :: tail
         | _ -> false, stack
 
-let op_tuck (stack: Cmd list) =
+let op_tuck (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
@@ -535,12 +529,12 @@ let op_tuck (stack: Cmd list) =
             true, a :: b :: a :: tail
         | _ -> false, stack
 
-let op_checksig (stack: Cmd list) (zbin: byte[]) =
+let op_checksig (stack: Stack) (zbin: byte[]) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data sec_pubkey :: Data signature :: tail ->
+        | sec_pubkey :: signature :: tail ->
             let point = ecc.S256Point.Parse sec_pubkey
             let slength = signature.Length - 1
             let sighash = signature[slength]
@@ -548,304 +542,301 @@ let op_checksig (stack: Cmd list) (zbin: byte[]) =
             let signa = ecc.Signature.Parse der_signature
             let z = helper.bigint_from_bytes zbin
             if point.Verify z signa then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_checksigverify (stack: Cmd list) (z: byte[]) =
+let op_checksigverify (stack: Stack) (z: byte[]) =
     let state1, newstack1 = op_checksig stack z
     let state2, newstack2 = op_verify newstack1
     state1 && state2, newstack2
 
-let op_checkmultisig (stack: Cmd list) (z: byte[]) =
+let op_checkmultisig (stack: Stack) (z: byte[]) =
     false, stack
 
-let op_checkmultisigverify (stack: Cmd list) (z: byte[]) =
+let op_checkmultisigverify (stack: Stack) (z: byte[]) =
     let state1, newstack1 = op_checkmultisig stack z
     let state2, newstack2 = op_verify newstack1
     state1 && state2, newstack2
 
-let op_size (stack: Cmd list) =
+let op_size (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data e -> true, Data (encode_num e.Length) :: stack
-        | _ -> false, stack
+        let head = List.head stack
+        true, encode_num head.Length :: stack
 
-let op_equal (stack: Cmd list) =
+let op_equal (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
         | a :: b :: tail ->
             if a = b then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                false, Data (encode_num 0) :: tail
+                false, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_equalverify (stack: Cmd list) =
+let op_equalverify (stack: Stack) =
     let state1, newstack1 = op_equal stack
     let state2, newstack2 = op_verify newstack1
     state1 && state2, newstack2
 
-let op_1add (stack: Cmd list) =
+let op_1add (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data n -> true, Data (encode_num (decode_num n + 1)) :: stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        true, encode_num (decode_num head + 1) :: tail
 
-let op_1sub (stack: Cmd list) =
+let op_1sub (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data n -> true, Data (encode_num (decode_num n - 1)) :: stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        true, encode_num (decode_num head - 1) :: tail
 
-let op_negate (stack: Cmd list) =
+let op_negate (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data n -> true, Data (encode_num -(decode_num n)) :: stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        true, encode_num -(decode_num head) :: tail
 
-let op_abs (stack: Cmd list) =
+let op_abs (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data n -> true, Data (encode_num <| abs (decode_num n)) :: stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        true, encode_num (abs (decode_num head)) :: tail
 
-let op_not (stack: Cmd list) =
+let op_not (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data n ->
-            if decode_num n = 0 then
-                true, Data (encode_num 1) :: stack
-            else
-                true, Data (encode_num 0) :: stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        if decode_num head = 0 then
+            true, encode_num 1 :: tail
+        else
+            true, encode_num 0 :: tail
 
-let op_0notequal (stack: Cmd list) =
+let op_0notequal (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data n ->
-            if decode_num n = 0 then
-                true, Data (encode_num 0) :: stack
-            else
-                true, Data (encode_num 1) :: stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        if decode_num head = 0 then
+            true, encode_num 0 :: tail
+        else
+            true, encode_num 1 :: tail
 
-let op_add (stack: Cmd list) =
+let op_add (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
-            true, Data (encode_num (decode_num a + decode_num b)) :: tail
+        | a :: b :: tail ->
+            true, encode_num (decode_num a + decode_num b) :: tail
         | _ -> false, stack
 
-let op_sub (stack: Cmd list) =
+let op_sub (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
-            true, Data (encode_num (decode_num b - decode_num a)) :: tail
+        | a :: b :: tail ->
+            true, encode_num (decode_num b - decode_num a) :: tail
         | _ -> false, stack
 
-let op_booland (stack: Cmd list) =
+let op_booland (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             let abool = decode_num a <> 0
             let bbool = decode_num b <> 0
             if abool && bbool then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_boolor (stack: Cmd list) =
+let op_boolor (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             let abool = decode_num a <> 0
             let bbool = decode_num b <> 0
             if abool || bbool then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_numequal (stack: Cmd list) =
+let op_numequal (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             if decode_num a = decode_num b then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_numequalverify (stack: Cmd list) =
+let op_numequalverify (stack: Stack) =
     let state1, newstack1 = op_numequal stack
     let state2, newstack2 = op_verify newstack1
     state1 && state2, newstack2
 
-let op_numnotequal (stack: Cmd list) =
+let op_numnotequal (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             if decode_num a <> decode_num b then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_lessthan (stack: Cmd list) =
+let op_lessthan (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             if decode_num b < decode_num a then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_greaterthan (stack: Cmd list) =
+let op_greaterthan (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             if decode_num b > decode_num a then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_lessthanorequal (stack: Cmd list) =
+let op_lessthanorequal (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             if decode_num b <= decode_num a then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_greaterthanorequal (stack: Cmd list) =
+let op_greaterthanorequal (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             if decode_num b >= decode_num a then
-                true, Data (encode_num 1) :: tail
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_min (stack: Cmd list) =
+let op_min (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             if decode_num a < decode_num b then
-                true, Data a :: tail
+                true, a :: tail
             else
-                true, Data b :: tail
+                true, b :: tail
         | _ -> false, stack
 
-let op_max (stack: Cmd list) =
+let op_max (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
         match stack with
-        | Data a :: Data b :: tail ->
+        | a :: b :: tail ->
             if decode_num a > decode_num b then
-                true, Data a :: tail
+                true, a :: tail
             else
-                true, Data b :: tail
+                true, b :: tail
         | _ -> false, stack
 
-let op_within (stack: Cmd list) =
+let op_within (stack: Stack) =
     if stack.Length < 3 then
         false, stack
     else
         match stack with
-        | Data max :: Data min :: Data n :: tail ->
-            let i = decode_num n
-            if i >= decode_num min && i < decode_num max then
-                true, Data (encode_num 1) :: tail
+        | max :: min :: me :: tail ->
+            let n = decode_num me
+            if n >= decode_num min && n < decode_num max then
+                true, encode_num 1 :: tail
             else
-                true, Data (encode_num 0) :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_ripemd160 (stack: Cmd list) =
+let op_ripemd160 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data bytes -> true, Data (helper.ripemd160 bytes) :: List.tail stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        true, helper.ripemd160 head :: tail
 
-let op_sha1 (stack: Cmd list) =
+let op_sha1 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data bytes -> true, Data (helper.sha1 bytes) :: List.tail stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        true, helper.sha1 head :: tail
 
-let op_sha256 (stack: Cmd list) =
+let op_sha256 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data bytes -> true, Data (helper.sha256 bytes) :: List.tail stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        true, helper.sha256 head :: tail
 
-let op_hash160 (stack: Cmd list) =
+let op_hash160 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data bytes -> true, Data (helper.hash160 bytes) :: List.tail stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        true, helper.hash160 head :: tail
 
-let op_hash256 (stack: Cmd list) =
+let op_hash256 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        match List.head stack with
-        | Data bytes -> true, Data (helper.hash256 bytes) :: List.tail stack
-        | _ -> false, stack
+        let head = List.head stack
+        let tail = List.tail stack
+        true, helper.hash256 head :: tail
 
 let code_if_functions =
     Map [

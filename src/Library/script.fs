@@ -1,12 +1,12 @@
 module script
 
-type Script = private { cmds: op.Cmd list } with
+type Script = private { program: op.Cmd list } with
     static member Empty =
-        { cmds = [] }
+        { program = [] }
 
-    static member Create ?cmds0 =
-        let cmds = defaultArg cmds0 List.Empty
-        { cmds = cmds }
+    static member Create ?program0 =
+        let program = defaultArg program0 List.Empty
+        { program = program }
 
     static member Parse stream =
         let mutable length = helper.read_varint stream
@@ -33,11 +33,11 @@ type Script = private { cmds: op.Cmd list } with
                 length <- length - 2UL - datalen
             else
                 cmds <- op.Code (byte current) :: cmds
-        { cmds = List.rev cmds }
+        { program = List.rev cmds }
 
     member this.raw_serialize : byte[] =
         let mutable serialized = List.Empty
-        for cmd in this.cmds do
+        for cmd in this.program do
             match cmd with
             | op.Code opcode ->
                 serialized <- opcode :: serialized
@@ -59,24 +59,25 @@ type Script = private { cmds: op.Cmd list } with
         Array.concat [ helper.encode_varint <| uint64 serialized.Length; serialized ]
 
     static member (+) (self, other : Script) =
-        { cmds = self.cmds @ other.cmds }
+        { program = self.program @ other.program }
 
     member this.Evaluate z =
-        let mutable stack = List<op.Cmd>.Empty
-        let mutable altstack = List<op.Cmd>.Empty
+        let mutable stack = op.Stack.Empty
+        let mutable altstack = op.Stack.Empty
+        let mutable program = this.program
         let mutable state = true
-        for cmd in this.cmds do
+        for cmd in this.program do
             if state then
                 match cmd with
                 | op.Code opcode ->
                     match opcode with
-                    | op.OP_IF | op.OP_NOTIF -> 
-                        let opfunc = op.code_if_functions[opcode]  
-                        let newstate, newstack = opfunc stack this.cmds
+                    | op.OP_IF | op.OP_NOTIF ->
+                        let opfunc = op.code_if_functions[opcode]
+                        let newstate, newstack, program = opfunc stack this.program
                         state <- newstate
                         stack <- newstack
                     | op.OP_TOALTSTACK | op.OP_FROMALTSTACK ->
-                        let opfunc = op.code_altstack_functions[opcode]  
+                        let opfunc = op.code_altstack_functions[opcode]
                         let newstate, newstack, newaltstack = opfunc stack altstack
                         state <- newstate
                         stack <- newstack
@@ -85,19 +86,19 @@ type Script = private { cmds: op.Cmd list } with
                     | op.OP_CHECKSIGVERIFY
                     | op.OP_CHECKMULTISIG
                     | op.OP_CHECKMULTISIGVERIFY ->
-                        let opfunc = op.code_sig_functions[opcode]  
+                        let opfunc = op.code_sig_functions[opcode]
                         let newstate, newstack = opfunc stack z
                         state <- newstate
                         stack <- newstack
                     | _ ->
-                        let opfunc = op.code_functions[opcode]  
+                        let opfunc = op.code_functions[opcode]
                         let newstate, newstack = opfunc stack
                         state <- newstate
                         stack <- newstack
                 | op.Data bytes ->
-                    stack <- cmd :: stack
+                    stack <- bytes :: stack
 
-        if state && stack = [ op.Data [| 1uy |] ] then
+        if state && stack = [ [| 1uy |] ] then
             true
         else
             false

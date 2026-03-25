@@ -67,7 +67,7 @@ type Signature = { r: bigint; s: bigint } with
         let length = stream.ReadByte()
         if length + 2 <> sig_bin.Length then
             failwith "bad signature length"
-        let marker = stream.ReadByte() 
+        let marker = stream.ReadByte()
         if marker <> 0x02 then
             failwith "bad signature"
         let rlength = stream.ReadByte()
