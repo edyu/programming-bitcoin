@@ -34,6 +34,21 @@ let bigint_from_hex (hex: string) =
     else
         BigInteger.Parse(s, NumberStyles.HexNumber)
 
+let sha1 (bytes: byte[]) =
+    use sha1 = SHA1.Create()
+    sha1.ComputeHash bytes
+
+let sha256 (bytes: byte[]) =
+    use sha256 = SHA256.Create()
+    sha256.ComputeHash bytes
+
+let ripemd160 (bytes: byte[]) =
+    let ripemd160 = RipeMD160Digest()
+    let result = Array.zeroCreate 20
+    ripemd160.BlockUpdate(bytes, 0, bytes.Length)
+    ripemd160.DoFinal(result, 0) |> ignore
+    result
+
 let hash256 (bytes: byte[]) =
     use sha256 = SHA256.Create()
     sha256.ComputeHash bytes |> sha256.ComputeHash
@@ -42,14 +57,9 @@ let hash256_string (input: string) =
     let bytes = Encoding.UTF8.GetBytes input
     hash256 bytes
 
-let hash160 (input: byte[]) =
+let hash160 (bytes: byte[]) =
     use sha256 = SHA256.Create()
-    let bytes = sha256.ComputeHash input
-    let ripemd160 = RipeMD160Digest()
-    let result = Array.zeroCreate 20
-    ripemd160.BlockUpdate(bytes, 0, bytes.Length)
-    ripemd160.DoFinal(result, 0) |> ignore
-    result
+    sha256.ComputeHash bytes |> ripemd160
 
 let bytes_to_hex bytes =
     BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()

@@ -77,9 +77,10 @@ type Script = private { cmds: op.Cmd list } with
                         stack <- newstack
                     | op.OP_TOALTSTACK | op.OP_FROMALTSTACK ->
                         let opfunc = op.code_altstack_functions[opcode]  
-                        let newstate, newstack = opfunc stack altstack
+                        let newstate, newstack, newaltstack = opfunc stack altstack
                         state <- newstate
                         stack <- newstack
+                        altstack <- newaltstack
                     | op.OP_CHECKSIG
                     | op.OP_CHECKSIGVERIFY
                     | op.OP_CHECKMULTISIG
