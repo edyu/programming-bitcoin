@@ -64,41 +64,43 @@ type Script = private { program: op.Cmd list } with
     member this.Evaluate z =
         let mutable stack = op.Stack.Empty
         let mutable altstack = op.Stack.Empty
-        let mutable program = this.program
         let mutable state = true
-        for cmd in this.program do
-            if state then
-                match cmd with
-                | op.Code opcode ->
-                    match opcode with
-                    | op.OP_IF | op.OP_NOTIF ->
-                        let opfunc = op.code_if_functions[opcode]
-                        let newstate, newstack, program = opfunc stack this.program
-                        state <- newstate
-                        stack <- newstack
-                    | op.OP_TOALTSTACK | op.OP_FROMALTSTACK ->
-                        let opfunc = op.code_altstack_functions[opcode]
-                        let newstate, newstack, newaltstack = opfunc stack altstack
-                        state <- newstate
-                        stack <- newstack
-                        altstack <- newaltstack
-                    | op.OP_CHECKSIG
-                    | op.OP_CHECKSIGVERIFY
-                    | op.OP_CHECKMULTISIG
-                    | op.OP_CHECKMULTISIGVERIFY ->
-                        let opfunc = op.code_sig_functions[opcode]
-                        let newstate, newstack = opfunc stack z
-                        state <- newstate
-                        stack <- newstack
-                    | _ ->
-                        let opfunc = op.code_functions[opcode]
-                        let newstate, newstack = opfunc stack
-                        state <- newstate
-                        stack <- newstack
-                | op.Data bytes ->
-                    stack <- bytes :: stack
+        let mutable cmds = this.program
+        while state && not cmds.IsEmpty do
+            let cmd = cmds.Head
+            cmds <- cmds.Tail
+            match cmd with
+            | op.Code opcode ->
+                match opcode with
+                | op.OP_IF | op.OP_NOTIF ->
+                    let opfunc = op.code_if_functions[opcode]
+                    let newstate, newstack, newcmds = opfunc stack cmds
+                    state <- newstate
+                    stack <- newstack
+                    cmds <- newcmds
+                | op.OP_TOALTSTACK | op.OP_FROMALTSTACK ->
+                    let opfunc = op.code_altstack_functions[opcode]
+                    let newstate, newstack, newaltstack = opfunc stack altstack
+                    state <- newstate
+                    stack <- newstack
+                    altstack <- newaltstack
+                | op.OP_CHECKSIG
+                | op.OP_CHECKSIGVERIFY
+                | op.OP_CHECKMULTISIG
+                | op.OP_CHECKMULTISIGVERIFY ->
+                    let opfunc = op.code_sig_functions[opcode]
+                    let newstate, newstack = opfunc stack z
+                    state <- newstate
+                    stack <- newstack
+                | _ ->
+                    let opfunc = op.code_functions[opcode]
+                    let newstate, newstack = opfunc stack
+                    state <- newstate
+                    stack <- newstack
+            | op.Data bytes ->
+                stack <- bytes :: stack
 
-        if state && stack = [ [| 1uy |] ] then
-            true
+        if state && op.decode_num stack.Head = 0 then
+            false, stack
         else
-            false
+            true, stack

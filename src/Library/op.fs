@@ -216,13 +216,13 @@ let encode_num num =
             let b = byte(abs_num &&& 0xff)
             result <- b :: result
             abs_num <- abs_num >>> 8
-        if List.head result &&& 0x80uy <> 0uy then
+        if result.Head &&& 0x80uy <> 0uy then
             if negative then
                 result <- 0x80uy :: result
             else
                 result <- 0uy :: result
         else if negative then
-            result <- (List.head result ||| 0x80uy) :: List.tail result
+            result <- (result.Head ||| 0x80uy) :: result.Tail
         Array.ofList <| List.rev result
 
 let decode_num (bytes: byte[]) : int =
@@ -300,7 +300,7 @@ let op_nop stack =
 let op_fail stack =
     false, stack
 
-let op_if (stack: Stack) (cmds: Cmd list) =
+let private op_if_internal (stack: Stack) (cmds: Cmd list) op =
     if stack.IsEmpty then
         false, stack, cmds
     else
@@ -309,10 +309,11 @@ let op_if (stack: Stack) (cmds: Cmd list) =
         let mutable if_or_else = true
         let mutable num_endif = 1
         let mutable finished = false
-        let mutable i = 0
-        let mutable found = false
+        let mutable endif = false
+        let mutable cmds = cmds
         while not finished do
-            let cmd = List.item i cmds
+            let cmd = cmds.Head
+            cmds <- cmds.Tail
             match cmd with
             | Code opcode ->
                 if opcode = OP_IF || opcode = OP_NOTIF then
@@ -327,7 +328,7 @@ let op_if (stack: Stack) (cmds: Cmd list) =
                 else if opcode = OP_ENDIF then
                     if num_endif = 1 then
                         finished <- true
-                        found <- true
+                        endif <- true
                     else
                         num_endif <- num_endif - 1
                         if if_or_else then
@@ -344,25 +345,28 @@ let op_if (stack: Stack) (cmds: Cmd list) =
                     if_cmds <- cmd :: if_cmds
                 else
                     else_cmds <- cmd :: else_cmds
-        if not found then
+        if not endif then
             false, stack, cmds
         else
-            if decode_num (List.head stack) = 0 then
-                true, stack, else_cmds
+            if op (decode_num stack.Head) 0 then
+                true, stack.Tail, List.rev if_cmds @ cmds
             else
-                true, stack, if_cmds
+                true, stack.Tail, List.rev else_cmds @ cmds
+
+let op_if (stack: Stack) (cmds: Cmd list) =
+    op_if_internal stack cmds (<>)
 
 let op_notif (stack: byte[] list) (cmds: Cmd list) =
-    false, stack, cmds
+    op_if_internal stack cmds (=)
 
 let op_verify (stack: Stack) =
     if stack.Length < 1 then
         false, stack
     else
-        if decode_num <| List.head stack = 0 then
-            false, List.tail stack
+        if decode_num <| stack.Head = 0 then
+            false, stack.Tail
         else
-            true, List.tail stack
+            true, stack.Tail
 
 let op_return (stack: Stack) =
     false, stack
@@ -371,19 +375,19 @@ let op_toaltstack (stack: Stack) (altstack: Stack) =
     if stack.IsEmpty then
         false, stack, altstack
     else
-        true, List.tail stack, List.head stack :: altstack
+        true, stack.Tail, stack.Head :: altstack
 
 let op_fromaltstack (stack: Stack) (altstack: Stack) =
     if altstack.IsEmpty then
         false, stack, altstack
     else
-        true, List.head altstack :: stack, List.tail altstack
+        true, altstack.Head :: stack, altstack.Tail
 
 let op_2drop (stack: Stack) =
     if stack.Length < 2 then
         false, stack
     else
-        true, List.tail <| List.tail stack
+        true, List.tail <| stack.Tail
 
 let op_2dup (stack: Stack) =
     if stack.Length < 2 then
@@ -435,7 +439,7 @@ let op_ifdup (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
+        let head = stack.Head
         if decode_num head <> 0 then
             true, head :: stack
         else
@@ -448,13 +452,13 @@ let op_drop (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        true, List.tail stack
+        true, stack.Tail
 
 let op_dup (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        true, List.head stack :: stack
+        true, stack.Head :: stack
 
 let op_nip (stack: Stack) =
     if stack.Length < 2 then
@@ -564,7 +568,7 @@ let op_size (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
+        let head = stack.Head
         true, encode_num head.Length :: stack
 
 let op_equal (stack: Stack) =
@@ -588,40 +592,40 @@ let op_1add (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         true, encode_num (decode_num head + 1) :: tail
 
 let op_1sub (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         true, encode_num (decode_num head - 1) :: tail
 
 let op_negate (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         true, encode_num -(decode_num head) :: tail
 
 let op_abs (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         true, encode_num (abs (decode_num head)) :: tail
 
 let op_not (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         if decode_num head = 0 then
             true, encode_num 1 :: tail
         else
@@ -631,8 +635,8 @@ let op_0notequal (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         if decode_num head = 0 then
             true, encode_num 0 :: tail
         else
@@ -802,40 +806,40 @@ let op_ripemd160 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         true, helper.ripemd160 head :: tail
 
 let op_sha1 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         true, helper.sha1 head :: tail
 
 let op_sha256 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         true, helper.sha256 head :: tail
 
 let op_hash160 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         true, helper.hash160 head :: tail
 
 let op_hash256 (stack: Stack) =
     if stack.IsEmpty then
         false, stack
     else
-        let head = List.head stack
-        let tail = List.tail stack
+        let head = stack.Head
+        let tail = stack.Tail
         true, helper.hash256 head :: tail
 
 let code_if_functions =

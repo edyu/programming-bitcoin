@@ -331,7 +331,7 @@ let ``test script evaluation`` () =
     use stream_sig = new MemoryStream(sigba)
     let script_sig = script.Script.Parse stream_sig
     let combined_script = script_sig + script_pubkey
-    let eval = combined_script.Evaluate z
+    let eval, _ = combined_script.Evaluate z
     Assert.True eval
 
 [<Fact>]
@@ -351,3 +351,55 @@ let ``test op_hash160`` () =
     let state, stack = op.op_hash160 stack
     Assert.True state
     Assert.True <| (List.head stack = helper.bytes_from_hex "d7d5ee7824ff93f94c3055af9382c86c68b5ca92")
+
+[<Fact>]
+let ``test op_if`` () =
+    let bytes = bytes_from_hex "51635268"
+    let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
+    use stream = new MemoryStream(input)
+    let script_if = script.Script.Parse stream
+    let eval, stack = script_if.Evaluate [||]
+    Assert.True eval
+    Assert.True <| (op.decode_num stack.Head = 2)
+
+    let bytes = bytes_from_hex "516352675368"
+    let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
+    use stream = new MemoryStream(input)
+    let script_if = script.Script.Parse stream
+    let eval, stack = script_if.Evaluate [||]
+    Assert.True eval
+    Assert.True <| (op.decode_num stack.Head = 2)
+
+    let bytes = bytes_from_hex "006352675368"
+    let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
+    use stream = new MemoryStream(input)
+    let script_if = script.Script.Parse stream
+    let eval, stack = script_if.Evaluate [||]
+    Assert.True eval
+    Assert.True <| (op.decode_num stack.Head = 3)
+
+    let bytes = bytes_from_hex "51635163546868"
+    let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
+    use stream = new MemoryStream(input)
+    let script_if = script.Script.Parse stream
+    let eval, stack = script_if.Evaluate [||]
+    Assert.True eval
+    Assert.True <| (op.decode_num stack.Head = 4)
+
+[<Fact>]
+let ``test op_notif`` () =
+    let bytes = bytes_from_hex "00645268"
+    let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
+    use stream = new MemoryStream(input)
+    let script_if = script.Script.Parse stream
+    let eval, stack = script_if.Evaluate [||]
+    Assert.True eval
+    Assert.True <| (op.decode_num stack.Head = 2)
+
+    let bytes = bytes_from_hex "516452675368"
+    let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
+    use stream = new MemoryStream(input)
+    let script_if = script.Script.Parse stream
+    let eval, stack = script_if.Evaluate [||]
+    Assert.True eval
+    Assert.True <| (op.decode_num stack.Head = 3)
