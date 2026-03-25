@@ -65,7 +65,7 @@ type Signature = { r: bigint; s: bigint } with
         if prefix <> 0x30 then
             failwith "bad signature"
         let length = stream.ReadByte()
-        if length + 2 > sig_bin.Length then
+        if length + 2 <> sig_bin.Length then
             failwith "bad signature length"
         let marker = stream.ReadByte() 
         if marker <> 0x02 then
@@ -81,7 +81,7 @@ type Signature = { r: bigint; s: bigint } with
         let sbin = Array.zeroCreate<byte> slength
         let bytesRead = stream.ReadExactly sbin
         let s = helper.bigint_from_bytes sbin
-        if rlength + slength + 6 > sig_bin.Length then
+        if rlength + slength + 6 <> sig_bin.Length then
             failwith "signature too long"
         { r = r; s = s }
 

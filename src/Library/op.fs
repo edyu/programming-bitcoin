@@ -1,5 +1,204 @@
 module op
 
+[<Literal>]
+let OP_0 = 0uy
+[<Literal>]
+let OP_PUSHDATA1 = 76uy
+[<Literal>]
+let OP_PUSHDATA2 = 77uy
+[<Literal>]
+let OP_PUSHDATA4 = 78uy
+[<Literal>]
+let OP_1NEGATE = 79uy
+[<Literal>]
+let OP_1 = 81uy
+[<Literal>]
+let OP_2 = 82uy
+[<Literal>]
+let OP_3 = 83uy
+[<Literal>]
+let OP_4 = 84uy
+[<Literal>]
+let OP_5 = 85uy
+[<Literal>]
+let OP_6 = 86uy
+[<Literal>]
+let OP_7 = 87uy
+[<Literal>]
+let OP_8 = 88uy
+[<Literal>]
+let OP_9 = 89uy
+[<Literal>]
+let OP_10 = 90uy
+[<Literal>]
+let OP_11 = 91uy
+[<Literal>]
+let OP_12 = 92uy
+[<Literal>]
+let OP_13 = 93uy
+[<Literal>]
+let OP_14 = 94uy
+[<Literal>]
+let OP_15 = 95uy
+[<Literal>]
+let OP_16 = 96uy
+[<Literal>]
+let OP_NOP = 97uy
+[<Literal>]
+let OP_IF = 99uy
+[<Literal>]
+let OP_NOTIF = 100uy
+[<Literal>]
+let OP_VERIF = 101uy
+[<Literal>]
+let OP_VERNOTIF = 102uy
+[<Literal>]
+let OP_ELSE = 103uy
+[<Literal>]
+let OP_ENDIF = 104uy
+[<Literal>]
+let OP_VERIFY = 105uy
+[<Literal>]
+let OP_RETURN = 106uy
+[<Literal>]
+let OP_TOALTSTACK = 107uy
+[<Literal>]
+let OP_FROMALTSTACK = 108uy
+[<Literal>]
+let OP_2DROP = 109uy
+[<Literal>]
+let OP_2DUP = 110uy
+[<Literal>]
+let OP_3DUP = 111uy
+[<Literal>]
+let OP_2OVER = 112uy
+[<Literal>]
+let OP_2ROT = 113uy
+[<Literal>]
+let OP_2SWAP = 114uy
+[<Literal>]
+let OP_IFDUP = 115uy
+[<Literal>]
+let OP_DEPTH = 116uy
+[<Literal>]
+let OP_DROP = 117uy
+[<Literal>]
+let OP_DUP = 118uy
+[<Literal>]
+let OP_NIP = 119uy
+[<Literal>]
+let OP_OVER = 120uy
+[<Literal>]
+let OP_PICK = 121uy
+[<Literal>]
+let OP_ROLL = 122uy
+[<Literal>]
+let OP_ROT = 123uy
+[<Literal>]
+let OP_SWAP = 124uy
+[<Literal>]
+let OP_TUCK = 125uy
+[<Literal>]
+let OP_SIZE = 130uy
+[<Literal>]
+let OP_EQUAL = 135uy
+[<Literal>]
+let OP_EQUALVERIFY = 136uy
+[<Literal>]
+let OP_1ADD = 139uy
+[<Literal>]
+let OP_1SUB = 140uy
+[<Literal>]
+let OP_2MUL = 141uy
+[<Literal>]
+let OP_2DIV = 142uy
+[<Literal>]
+let OP_NEGATE = 143uy
+[<Literal>]
+let OP_ABS = 144uy
+[<Literal>]
+let OP_NOT = 145uy
+[<Literal>]
+let OP_0NOTEQUAL = 146uy
+[<Literal>]
+let OP_ADD = 147uy
+[<Literal>]
+let OP_SUB = 148uy
+[<Literal>]
+let OP_MUL = 149uy
+[<Literal>]
+let OP_DIV = 150uy
+[<Literal>]
+let OP_MOD = 151uy
+[<Literal>]
+let OP_LSHIFT = 152uy
+[<Literal>]
+let OP_RSHIFT = 153uy
+[<Literal>]
+let OP_BOOLAND = 154uy
+[<Literal>]
+let OP_BOOLOR = 155uy
+[<Literal>]
+let OP_NUMEQUAL = 156uy
+[<Literal>]
+let OP_NUMEQUALVERIFY = 157uy
+[<Literal>]
+let OP_NUMNOTEQUAL = 158uy
+[<Literal>]
+let OP_LESSTHAN = 159uy
+[<Literal>]
+let OP_GREATERTHAN = 160uy
+[<Literal>]
+let OP_LESSTHANOREQUAL = 161uy
+[<Literal>]
+let OP_GREATERTHANOREQUAL = 162uy
+[<Literal>]
+let OP_MIN = 163uy
+[<Literal>]
+let OP_MAX = 164uy
+[<Literal>]
+let OP_WITHIN = 165uy
+[<Literal>]
+let OP_RIPEMD160 = 166uy
+[<Literal>]
+let OP_SHA1 = 167uy
+[<Literal>]
+let OP_SHA256 = 168uy
+[<Literal>]
+let OP_HASH160 = 169uy
+[<Literal>]
+let OP_HASH256 = 170uy
+[<Literal>]
+let OP_CODESEPARATOR = 171uy
+[<Literal>]
+let OP_CHECKSIG = 172uy
+[<Literal>]
+let OP_CHECKSIGVERIFY = 173uy
+[<Literal>]
+let OP_CHECKMULTISIG = 174uy
+[<Literal>]
+let OP_CHECKMULTISIGVERIFY = 175uy
+[<Literal>]
+let OP_NOP1 = 176uy
+[<Literal>]
+let OP_CHECKLOCKTIMEVERIFY = 177uy
+[<Literal>]
+let OP_CHECKSEQUENCEVERIFY = 178uy
+[<Literal>]
+let OP_NOP4 = 179uy
+[<Literal>]
+let OP_NOP5 = 180uy
+[<Literal>]
+let OP_NOP6 = 181uy
+[<Literal>]
+let OP_NOP7 = 182uy
+[<Literal>]
+let OP_NOP8 = 183uy
+[<Literal>]
+let OP_NOP9 = 184uy
+[<Literal>]
+let OP_NOP10 = 185uy
+
 type Cmd = Code of byte | Data of byte[]
 
 let hex i = true
@@ -101,12 +300,61 @@ let op_fail stack =
 
 let op_if (stack: Cmd list) (cmds: Cmd list) =
     if stack.IsEmpty then
-        false, stack
+        false, stack, cmds
     else
-        true, stack
+        let mutable if_cmds = []
+        let mutable else_cmds = []
+        let mutable if_or_else = true
+        let mutable num_endif = 1
+        let mutable finished = false
+        let mutable i = 0
+        let mutable found = false
+        while not finished do
+            let cmd = List.item i cmds
+            match cmd with
+            | Code opcode ->
+                if opcode = OP_IF || opcode = OP_NOTIF then
+                    // nested if
+                    num_endif <- num_endif + 1
+                    if if_or_else then
+                        if_cmds <- cmd :: if_cmds
+                    else
+                        else_cmds <- cmd :: else_cmds
+                else if opcode = OP_ELSE && num_endif = 1 then
+                    if_or_else <- false
+                else if opcode = OP_ENDIF then
+                    if num_endif = 1 then
+                        finished <- true
+                        found <- true
+                    else
+                        num_endif <- num_endif - 1
+                        if if_or_else then
+                            if_cmds <- cmd :: if_cmds
+                        else
+                            else_cmds <- cmd :: else_cmds
+                else
+                    if if_or_else then
+                        if_cmds <- cmd :: if_cmds
+                    else
+                        else_cmds <- cmd :: else_cmds
+            | Data data ->
+                if if_or_else then
+                    if_cmds <- cmd :: if_cmds
+                else
+                    else_cmds <- cmd :: else_cmds
+        if not found then
+            false, stack, cmds
+        else
+            match List.head stack with
+            | Data n ->
+                if decode_num n = 0 then
+                    true, stack, else_cmds
+                else
+                    true, stack, if_cmds
+            | _ -> false, stack, cmds
 
 let op_notif (stack: Cmd list) (cmds: Cmd list) =
-    false, stack
+    false, stack, cmds
 
 let op_verify (stack: Cmd list) =
     if stack.Length < 1 then
@@ -292,8 +540,11 @@ let op_checksig (stack: Cmd list) (zbin: byte[]) =
         false, stack
     else
         match stack with
-        | Data sec_pubkey :: Data der_signature :: tail ->
+        | Data sec_pubkey :: Data signature :: tail ->
             let point = ecc.S256Point.Parse sec_pubkey
+            let slength = signature.Length - 1
+            let sighash = signature[slength]
+            let der_signature = signature[..slength-1]
             let signa = ecc.Signature.Parse der_signature
             let z = helper.bigint_from_bytes zbin
             if point.Verify z signa then
@@ -595,205 +846,6 @@ let op_hash256 (stack: Cmd list) =
         match List.head stack with
         | Data bytes -> true, Data (helper.hash256 bytes) :: List.tail stack
         | _ -> false, stack
-
-[<Literal>]
-let OP_0 = 0uy
-[<Literal>]
-let OP_PUSHDATA1 = 76uy
-[<Literal>]
-let OP_PUSHDATA2 = 77uy
-[<Literal>]
-let OP_PUSHDATA4 = 78uy
-[<Literal>]
-let OP_1NEGATE = 79uy
-[<Literal>]
-let OP_1 = 81uy
-[<Literal>]
-let OP_2 = 82uy
-[<Literal>]
-let OP_3 = 83uy
-[<Literal>]
-let OP_4 = 84uy
-[<Literal>]
-let OP_5 = 85uy
-[<Literal>]
-let OP_6 = 86uy
-[<Literal>]
-let OP_7 = 87uy
-[<Literal>]
-let OP_8 = 88uy
-[<Literal>]
-let OP_9 = 89uy
-[<Literal>]
-let OP_10 = 90uy
-[<Literal>]
-let OP_11 = 91uy
-[<Literal>]
-let OP_12 = 92uy
-[<Literal>]
-let OP_13 = 93uy
-[<Literal>]
-let OP_14 = 94uy
-[<Literal>]
-let OP_15 = 95uy
-[<Literal>]
-let OP_16 = 96uy
-[<Literal>]
-let OP_NOP = 97uy
-[<Literal>]
-let OP_IF = 99uy
-[<Literal>]
-let OP_NOTIF = 100uy
-[<Literal>]
-let OP_VERIF = 101uy
-[<Literal>]
-let OP_VERNOTIF = 102uy
-[<Literal>]
-let OP_ELSE = 103uy
-[<Literal>]
-let OP_ENDIF = 104uy
-[<Literal>]
-let OP_VERIFY = 105uy
-[<Literal>]
-let OP_RETURN = 106uy
-[<Literal>]
-let OP_TOALTSTACK = 107uy
-[<Literal>]
-let OP_FROMALTSTACK = 108uy
-[<Literal>]
-let OP_2DROP = 109uy
-[<Literal>]
-let OP_2DUP = 110uy
-[<Literal>]
-let OP_3DUP = 111uy
-[<Literal>]
-let OP_2OVER = 112uy
-[<Literal>]
-let OP_2ROT = 113uy
-[<Literal>]
-let OP_2SWAP = 114uy
-[<Literal>]
-let OP_IFDUP = 115uy
-[<Literal>]
-let OP_DEPTH = 116uy
-[<Literal>]
-let OP_DROP = 117uy
-[<Literal>]
-let OP_DUP = 118uy
-[<Literal>]
-let OP_NIP = 119uy
-[<Literal>]
-let OP_OVER = 120uy
-[<Literal>]
-let OP_PICK = 121uy
-[<Literal>]
-let OP_ROLL = 122uy
-[<Literal>]
-let OP_ROT = 123uy
-[<Literal>]
-let OP_SWAP = 124uy
-[<Literal>]
-let OP_TUCK = 125uy
-[<Literal>]
-let OP_SIZE = 130uy
-[<Literal>]
-let OP_EQUAL = 135uy
-[<Literal>]
-let OP_EQUALVERIFY = 136uy
-[<Literal>]
-let OP_1ADD = 139uy
-[<Literal>]
-let OP_1SUB = 140uy
-[<Literal>]
-let OP_2MUL = 141uy
-[<Literal>]
-let OP_2DIV = 142uy
-[<Literal>]
-let OP_NEGATE = 143uy
-[<Literal>]
-let OP_ABS = 144uy
-[<Literal>]
-let OP_NOT = 145uy
-[<Literal>]
-let OP_0NOTEQUAL = 146uy
-[<Literal>]
-let OP_ADD = 147uy
-[<Literal>]
-let OP_SUB = 148uy
-[<Literal>]
-let OP_MUL = 149uy
-[<Literal>]
-let OP_DIV = 150uy
-[<Literal>]
-let OP_MOD = 151uy
-[<Literal>]
-let OP_LSHIFT = 152uy
-[<Literal>]
-let OP_RSHIFT = 153uy
-[<Literal>]
-let OP_BOOLAND = 154uy
-[<Literal>]
-let OP_BOOLOR = 155uy
-[<Literal>]
-let OP_NUMEQUAL = 156uy
-[<Literal>]
-let OP_NUMEQUALVERIFY = 157uy
-[<Literal>]
-let OP_NUMNOTEQUAL = 158uy
-[<Literal>]
-let OP_LESSTHAN = 159uy
-[<Literal>]
-let OP_GREATERTHAN = 160uy
-[<Literal>]
-let OP_LESSTHANOREQUAL = 161uy
-[<Literal>]
-let OP_GREATERTHANOREQUAL = 162uy
-[<Literal>]
-let OP_MIN = 163uy
-[<Literal>]
-let OP_MAX = 164uy
-[<Literal>]
-let OP_WITHIN = 165uy
-[<Literal>]
-let OP_RIPEMD160 = 166uy
-[<Literal>]
-let OP_SHA1 = 167uy
-[<Literal>]
-let OP_SHA256 = 168uy
-[<Literal>]
-let OP_HASH160 = 169uy
-[<Literal>]
-let OP_HASH256 = 170uy
-[<Literal>]
-let OP_CODESEPARATOR = 171uy
-[<Literal>]
-let OP_CHECKSIG = 172uy
-[<Literal>]
-let OP_CHECKSIGVERIFY = 173uy
-[<Literal>]
-let OP_CHECKMULTISIG = 174uy
-[<Literal>]
-let OP_CHECKMULTISIGVERIFY = 175uy
-[<Literal>]
-let OP_NOP1 = 176uy
-[<Literal>]
-let OP_CHECKLOCKTIMEVERIFY = 177uy
-[<Literal>]
-let OP_CHECKSEQUENCEVERIFY = 178uy
-[<Literal>]
-let OP_NOP4 = 179uy
-[<Literal>]
-let OP_NOP5 = 180uy
-[<Literal>]
-let OP_NOP6 = 181uy
-[<Literal>]
-let OP_NOP7 = 182uy
-[<Literal>]
-let OP_NOP8 = 183uy
-[<Literal>]
-let OP_NOP9 = 184uy
-[<Literal>]
-let OP_NOP10 = 185uy
 
 let code_if_functions =
     Map [
