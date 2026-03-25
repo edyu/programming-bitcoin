@@ -1,6 +1,13 @@
 module script
 
 type Script = private { program: op.Cmd list } with
+    override this.ToString() =
+        let mapfunc = function
+            | op.Code c -> op.code_names[c]
+            | op.Data d -> helper.bytes_to_hex d
+        let ops = List.map mapfunc this.program
+        "[ " + String.concat "; " ops + " ]"
+
     static member Empty =
         { program = [] }
 
@@ -100,7 +107,9 @@ type Script = private { program: op.Cmd list } with
             | op.Data bytes ->
                 stack <- bytes :: stack
 
-        if state && op.decode_num stack.Head = 0 then
+        if not state || stack.IsEmpty then
+            false, stack
+        else if not stack.IsEmpty && op.decode_num stack.Head = 0 then
             false, stack
         else
             true, stack

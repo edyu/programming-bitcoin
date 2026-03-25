@@ -403,3 +403,24 @@ let ``test op_notif`` () =
     let eval, stack = script_if.Evaluate [||]
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head = 3)
+
+[<Fact>]
+let ``test simple scripts`` () =
+    let bytes = bytes_from_hex "52767693935687"
+    let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
+    use stream = new MemoryStream(input)
+    let script_if = script.Script.Parse stream
+    let eval, stack = script_if.Evaluate [||]
+    Assert.True eval
+    Assert.True <| (op.decode_num stack.Head <> 0)
+
+    let code = bytes_from_hex "767693935687"
+    let data = [| 1uy; 2uy |]
+    let bytes = Array.concat [ data; code ]
+    printfn "bytes: %A" bytes
+    let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
+    use stream = new MemoryStream(input)
+    let script1 = script.Script.Parse stream
+    let eval, stack = script1.Evaluate [||]
+    Assert.True eval
+    Assert.True <| (op.decode_num stack.Head <> 0)

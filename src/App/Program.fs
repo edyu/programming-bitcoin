@@ -179,10 +179,11 @@ let main args =
     let eval, _ = combined_script.Evaluate z
     printfn "%A" eval
 
-    let bytes = bytes_from_hex "51635163546868"
+    let bytes = bytes_from_hex "6e879169a77ca787"
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
     use stream = new MemoryStream(input)
     let script_if = script.Script.Parse stream
+    printfn "SCRIPT=%A" script_if
     let eval, stack = script_if.Evaluate [||]
     printfn "%A" eval
     printfn "%A" stack

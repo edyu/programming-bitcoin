@@ -11,6 +11,8 @@ let OP_PUSHDATA4 = 78uy
 [<Literal>]
 let OP_1NEGATE = 79uy
 [<Literal>]
+let OP_RESERVED = 80uy
+[<Literal>]
 let OP_1 = 81uy
 [<Literal>]
 let OP_2 = 82uy
@@ -44,6 +46,8 @@ let OP_15 = 95uy
 let OP_16 = 96uy
 [<Literal>]
 let OP_NOP = 97uy
+[<Literal>]
+let OP_VER = 98uy
 [<Literal>]
 let OP_IF = 99uy
 [<Literal>]
@@ -181,9 +185,9 @@ let OP_CHECKMULTISIGVERIFY = 175uy
 [<Literal>]
 let OP_NOP1 = 176uy
 [<Literal>]
-let OP_CHECKLOCKTIMEVERIFY = 177uy
+let OP_NOP2 = 177uy
 [<Literal>]
-let OP_CHECKSEQUENCEVERIFY = 178uy
+let OP_NOP3 = 178uy
 [<Literal>]
 let OP_NOP4 = 179uy
 [<Literal>]
@@ -866,6 +870,7 @@ let code_functions =
     Map [
         OP_0, op_0;
         OP_1NEGATE, op_1negate;
+        OP_RESERVED, op_return;
         OP_1, op_1;
         OP_2, op_2;
         OP_3, op_3;
@@ -937,14 +942,115 @@ let code_functions =
         OP_SHA256, op_sha256;
         OP_HASH160, op_hash160;
         OP_HASH256, op_hash256;
-        176uy, op_nop;
-//     177, op_checklocktimeverify;
-//     178, op_checksequenceverify;
-        179uy, op_nop;
-        180uy, op_nop;
-        181uy, op_nop;
-        182uy, op_nop;
-        183uy, op_nop;
-        184uy, op_nop;
-        185uy, op_nop;
+        OP_CODESEPARATOR, op_nop;
+        OP_NOP, op_nop;
+        OP_NOP2, op_nop;
+        OP_NOP3, op_nop;
+        OP_NOP4, op_nop;
+        OP_NOP5, op_nop;
+        OP_NOP6, op_nop;
+        OP_NOP7, op_nop;
+        OP_NOP8, op_nop;
+        OP_NOP9, op_nop;
+        OP_NOP10, op_nop;
+    ]
+
+let code_names =
+    Map [
+        OP_0, "OP_0";
+        OP_1NEGATE, "OP_1NEGATE";
+        OP_RESERVED, "OP_RESERVED";
+        OP_1, "OP_1";
+        OP_2, "OP_2";
+        OP_3, "OP_3";
+        OP_4, "OP_4";
+        OP_5, "OP_5";
+        OP_6, "OP_6";
+        OP_7, "OP_7";
+        OP_8, "OP_8";
+        OP_9, "OP_9";
+        OP_10, "OP_10";
+        OP_11, "OP_11";
+        OP_12, "OP_12";
+        OP_13, "OP_13";
+        OP_14, "OP_14";
+        OP_15, "OP_15";
+        OP_16, "OP_16";
+        OP_NOP, "OP_NOP";
+        OP_VER, "OP_VER";
+        OP_IF, "OP_IF";
+        OP_NOTIF, "OP_NOTIF";
+        OP_VERIF, "OP_VERIF";
+        OP_VERNOTIF, "OP_VERNOTIF";
+        OP_ELSE, "OP_ELSE";
+        OP_ENDIF, "OP_ENDIF";
+        OP_VERIFY, "OP_VERIFY";
+        OP_RETURN, "OP_RETURN";
+        OP_TOALTSTACK, "OP_TOALTSTACK";
+        OP_FROMALTSTACK, "OP_FROMALTSTACK";
+        OP_2DROP, "OP_2DROP";
+        OP_2DUP, "OP_2DUP";
+        OP_3DUP, "OP_3DUP";
+        OP_2OVER, "OP_2OVER";
+        OP_2ROT, "OP_2ROT";
+        OP_2SWAP, "OP_2SWAP";
+        OP_IFDUP, "OP_IFDUP";
+        OP_DEPTH, "OP_DEPTH";
+        OP_DROP, "OP_DROP";
+        OP_DUP,  "OP_DUP";
+        OP_NIP, "OP_NIP";
+        OP_OVER, "OP_OVER";
+        OP_PICK, "OP_PICK";
+        OP_ROLL, "OP_ROLL";
+        OP_ROT, "OP_ROT";
+        OP_SWAP, "OP_SWAP";
+        OP_TUCK, "OP_TUCK";
+        OP_SIZE, "OP_SIZE";
+        OP_EQUAL, "OP_EQUAL";
+        OP_EQUALVERIFY, "OP_EQUALVERIFY";
+        OP_1ADD, "OP_1ADD";
+        OP_1SUB, "OP_1SUB";
+        OP_2MUL, "OP_2MUL";
+        OP_2DIV, "OP_2DIV";
+        OP_NEGATE, "OP_NEGATE";
+        OP_ABS, "OP_ABS";
+        OP_NOT, "OP_NOT";
+        OP_0NOTEQUAL, "OP_0NOTEQUAL";
+        OP_ADD, "OP_ADD";
+        OP_SUB, "OP_SUB";
+        OP_MUL, "OP_MUL";
+        OP_DIV, "OP_DIV";
+        OP_MOD, "OP_MOD";
+        OP_BOOLAND, "OP_BOOLAND";
+        OP_BOOLOR, "OP_BOOLOR";
+        OP_NUMEQUAL, "OP_NUMEQUAL";
+        OP_NUMEQUALVERIFY, "OP_NUMEQUALVERIFY";
+        OP_NUMNOTEQUAL, "OP_NUMNOTEQUAL";
+        OP_LESSTHAN, "OPLESSTHAN";
+        OP_GREATERTHAN, "OP_GREATERTHAN";
+        OP_LESSTHANOREQUAL, "OP_LESSTHANOREQUAL";
+        OP_GREATERTHANOREQUAL, "OP_GREATERTHANOREQUAL";
+        OP_MIN, "OP_MIN";
+        OP_MAX, "OP_MAX";
+        OP_WITHIN, "OP_WITHIN";
+        OP_RIPEMD160, "OP_RIPEMD160";
+        OP_SHA1, "OP_SHA1";
+        OP_SHA256, "OP_SHA256";
+        OP_HASH160, "OP_HASH160";
+        OP_HASH256, "OP_HASH256";
+        OP_CODESEPARATOR, "OP_CODESEPARATOR";
+        OP_CHECKSIG, "OP_CHECKSIG";
+        OP_CHECKSIGVERIFY, "OP_CHECKSIGVERIFY";
+        OP_CHECKMULTISIG, "OP_CHECKMULTISIG";
+        OP_CHECKMULTISIGVERIFY, "OP_CHECKMULTISIGVERIFY";
+        OP_NOP1, "OP_NOP1";
+        OP_NOP2, "OP_NOP2";
+        OP_NOP3, "OP_NOP3";
+        OP_NOP4, "OP_NOP4";
+        OP_NOP5, "OP_NOP5";
+        OP_NOP6, "OP_NOP6";
+        OP_NOP7, "OP_NOP7";
+        OP_NOP8, "OP_NOP8";
+        OP_NOP9, "OP_NOP9";
+        OP_NOP10, "OP_NOP10";
     ]
