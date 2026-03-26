@@ -584,7 +584,7 @@ let op_equal (stack: Stack) =
             if a = b then
                 true, encode_num 1 :: tail
             else
-                false, encode_num 0 :: tail
+                true, encode_num 0 :: tail
         | _ -> false, stack
 
 let op_equalverify (stack: Stack) =
