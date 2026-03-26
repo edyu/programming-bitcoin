@@ -124,7 +124,7 @@ let ``test verification of signature 2`` () =
     Assert.True(point.Verify z { r = r; s = s })
 
 [<Fact>]
-let ``test signature`` () =
+let ``test signature math`` () =
     let e = bigint_from_bytes <| hash256_string "my secret"
     let pk = PrivateKey.Create e
     let k = bigint 1234567890
@@ -273,16 +273,16 @@ let ``test transaction id`` () =
 
 // [<Fact>]
 // let ``test transaction fetch`` () =
-//     let tx = TxFetcher.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" false
+//     let tx = TxHelper.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" false
 //     Assert.True <| (tx.Id = "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da")
 
 // [<Fact>]
 // let ``test transaction fee`` () =
-//     let tx1 = TxFetcher.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" true
-//     Assert.True <| (TxFetcher.get_fee tx1 = 0UL)
+//     let tx1 = TxHelper.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" true
+//     Assert.True <| (TxHelper.get_fee tx1 = 0UL)
 //     // pizza
-//     let tx2 = TxFetcher.fetch "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d" false
-//     Assert.True <| (TxFetcher.get_fee tx2 = 99000000UL)
+//     let tx2 = TxHelper.fetch "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d" false
+//     Assert.True <| (TxHelper.get_fee tx2 = 99000000UL)
 
 [<Fact>]
 let ``test big endian`` () =
@@ -321,7 +321,7 @@ let ``test script parsing and serialization`` () =
 
 [<Fact>]
 let ``test script evaluation`` () =
-    let z = bytes_from_hex "7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d"
+    let z = bigint_from_hex "7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d"
     let secb = bytes_from_hex "04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34"
     let sigb = bytes_from_hex "3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601"
     let secba = Array.concat [ helper.encode_varint <| uint64 secb.Length + 2UL; [| byte secb.Length |]; secb; [| 0xacuy |] ]
@@ -336,7 +336,7 @@ let ``test script evaluation`` () =
 
 [<Fact>]
 let ``test op_checksig`` () =
-    let z = bytes_from_hex "7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d"
+    let z = bigint_from_hex "7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d"
     let secb = bytes_from_hex "04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34"
     let sigb = bytes_from_hex "3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601"
     let stack = [ secb; sigb ]
@@ -358,7 +358,7 @@ let ``test op_if`` () =
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
     use stream = new MemoryStream(input)
     let script_if = script.Script.Parse stream
-    let eval, stack = script_if.Evaluate [||]
+    let eval, stack = script_if.Evaluate 0
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head = 2)
 
@@ -366,7 +366,7 @@ let ``test op_if`` () =
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
     use stream = new MemoryStream(input)
     let script_if = script.Script.Parse stream
-    let eval, stack = script_if.Evaluate [||]
+    let eval, stack = script_if.Evaluate 0
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head = 2)
 
@@ -374,7 +374,7 @@ let ``test op_if`` () =
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
     use stream = new MemoryStream(input)
     let script_if = script.Script.Parse stream
-    let eval, stack = script_if.Evaluate [||]
+    let eval, stack = script_if.Evaluate 0
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head = 3)
 
@@ -382,7 +382,7 @@ let ``test op_if`` () =
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
     use stream = new MemoryStream(input)
     let script_if = script.Script.Parse stream
-    let eval, stack = script_if.Evaluate [||]
+    let eval, stack = script_if.Evaluate 0
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head = 4)
 
@@ -392,7 +392,7 @@ let ``test op_notif`` () =
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
     use stream = new MemoryStream(input)
     let script_if = script.Script.Parse stream
-    let eval, stack = script_if.Evaluate [||]
+    let eval, stack = script_if.Evaluate 0
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head = 2)
 
@@ -400,7 +400,7 @@ let ``test op_notif`` () =
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
     use stream = new MemoryStream(input)
     let script_if = script.Script.Parse stream
-    let eval, stack = script_if.Evaluate [||]
+    let eval, stack = script_if.Evaluate 0
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head = 3)
 
@@ -410,18 +410,17 @@ let ``test simple scripts`` () =
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
     use stream = new MemoryStream(input)
     let script_if = script.Script.Parse stream
-    let eval, stack = script_if.Evaluate [||]
+    let eval, stack = script_if.Evaluate 0
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head <> 0)
 
     let code = bytes_from_hex "767693935687"
     let data = [| 1uy; 2uy |]
     let bytes = Array.concat [ data; code ]
-    printfn "bytes: %A" bytes
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
     use stream = new MemoryStream(input)
     let script1 = script.Script.Parse stream
-    let eval, stack = script1.Evaluate [||]
+    let eval, stack = script1.Evaluate 0
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head <> 0)
 
@@ -440,6 +439,45 @@ let ``test sha1 collision`` () =
     use stream = new MemoryStream(ss_bytes)
     let script_sig = script.Script.Parse stream
     let combined_script = script_sig + script_pubkey
-    let eval, stack =  combined_script.Evaluate [||]
+    let eval, stack =  combined_script.Evaluate 0
     Assert.True eval
     Assert.True <| (op.decode_num stack.Head <> 0)
+
+[<Fact>]
+let ``test fee`` () =
+    let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
+    use stream = new MemoryStream(raw_tx)
+    let tx = Tx.Parse stream
+    Assert.True (TxHelper.get_fee tx > 0UL)
+
+[<Fact>]
+let ``test signature`` () =
+    let sec = bytes_from_hex "0349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278a"
+    let der = bytes_from_hex "3045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed"
+    let z = bigint_from_hex "27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6"
+    let point = S256Point.Parse sec
+    let signature = Signature.Parse der
+    Assert.True (point.Verify z signature)
+
+[<Fact>]
+let ``test sighash`` () =
+    let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
+    use stream = new MemoryStream(raw_tx)
+    let tx = Tx.Parse stream
+    let sighash = TxHelper.sig_hash tx 0
+    let result = bigint_from_hex "27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6"
+    Assert.True <| (sighash = result)
+
+[<Fact>]
+let ``test verify_input`` () =
+    let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
+    use stream = new MemoryStream(raw_tx)
+    let tx = Tx.Parse stream
+    Assert.True <| (TxHelper.verify_input tx 0)
+
+[<Fact>]
+let ``test verify`` () =
+    let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
+    use stream = new MemoryStream(raw_tx)
+    let tx = Tx.Parse stream
+    Assert.True <| (TxHelper.verify tx)

@@ -537,7 +537,7 @@ let op_tuck (stack: Stack) =
             true, a :: b :: a :: tail
         | _ -> false, stack
 
-let op_checksig (stack: Stack) (zbin: byte[]) =
+let op_checksig (stack: Stack) (z: bigint) =
     if stack.Length < 2 then
         false, stack
     else
@@ -548,22 +548,21 @@ let op_checksig (stack: Stack) (zbin: byte[]) =
             let sighash = signature[slength]
             let der_signature = signature[..slength-1]
             let signa = ecc.Signature.Parse der_signature
-            let z = helper.bigint_from_bytes zbin
             if point.Verify z signa then
                 true, encode_num 1 :: tail
             else
                 true, encode_num 0 :: tail
         | _ -> false, stack
 
-let op_checksigverify (stack: Stack) (z: byte[]) =
+let op_checksigverify (stack: Stack) (z: bigint) =
     let state1, newstack1 = op_checksig stack z
     let state2, newstack2 = op_verify newstack1
     state1 && state2, newstack2
 
-let op_checkmultisig (stack: Stack) (z: byte[]) =
+let op_checkmultisig (stack: Stack) (z: bigint) =
     false, stack
 
-let op_checkmultisigverify (stack: Stack) (z: byte[]) =
+let op_checkmultisigverify (stack: Stack) (z: bigint) =
     let state1, newstack1 = op_checkmultisig stack z
     let state2, newstack2 = op_verify newstack1
     state1 && state2, newstack2

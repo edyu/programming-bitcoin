@@ -3,17 +3,12 @@ module tx
 open System.Collections.Generic
 open System.IO
 
-// type Script = { script: byte[] } with
-//     static member Empty =
-//         { script = [||] }
-//     static member Parse (stream: Stream) =
-//         let len = int <| helper.read_varint stream
-//         let buffer = Array.zeroCreate<byte> len
-//         let bytesRead = stream.Read(buffer, 0, len)
-//         { script = buffer }
-//     member this.Serialize =
-//         Array.concat [ helper.encode_varint <| uint64 this.script.Length; this.script ]
-//     override this.ToString() = helper.bytes_to_hex this.script
+[<Literal>]
+let SIGHASH_ALL = 1u
+[<Literal>]
+let SIGHASH_NONE = 2u
+[<Literal>]
+let SIGHASH_SINGLE = 3u
 
 type TxIn = private { prev_tx: byte[]; prev_index: uint32; script_sig: script.Script; sequence: uint32 } with
     member this.PrevTx = this.prev_tx
@@ -117,7 +112,7 @@ type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime:
         let locktime = helper.int_to_little_endian(uint64 this.Locktime, 4)
         Array.concat [ version; num_txins; tx_ins; num_txouts; tx_outs; locktime ]
 
-module TxFetcher =
+module TxHelper =
     let cache = new Dictionary<string, Tx>()
 
     let url = "https://blockchain.info"
@@ -153,3 +148,42 @@ module TxFetcher =
         for tx_out in tx.TxOuts do
             output <- output + tx_out.Amount
         input - output
+
+    let sig_hash (tx: Tx) (index: int) =
+        let version = helper.int_to_little_endian(uint64 tx.Version, 4)
+        let num_txins = helper.encode_varint <| uint64 tx.TxIns.Length
+        let mutable tx_ins = [||]
+        for i in [0..tx.TxIns.Length - 1] do
+            let tx_in = tx.TxIns[i]
+            let script_pubkey =
+                if i = index then get_script_pubkey tx_in
+                else script.Script.Empty
+            let new_in = TxIn.Create(tx_in.PrevTx, tx_in.PrevIndex, script_pubkey, tx_in.sequence) 
+            tx_ins <- Array.concat [ tx_ins; new_in.Serialize ]
+        let num_txouts = helper.encode_varint <| uint64 tx.TxOuts.Length
+        let mutable tx_outs = [||]
+        for tx_out in tx.TxOuts do
+            tx_outs <- Array.concat [ tx_outs; tx_out.Serialize ]
+        let locktime = helper.int_to_little_endian(uint64 tx.Locktime, 4)
+        let hashtype = helper.int_to_little_endian(uint64 SIGHASH_ALL, 4)
+        let s = Array.concat [ version; num_txins; tx_ins; num_txouts; tx_outs; locktime; hashtype ]
+        helper.bigint_from_bytes <| helper.hash256 s
+
+    let verify_input (tx: Tx) (index: int) =
+        let tx_in = tx.TxIns[index]
+        let script_pubkey = get_script_pubkey tx_in
+        let z = sig_hash tx index
+        let combined_script = tx_in.ScriptSig + script_pubkey
+        let verified, _ = combined_script.Evaluate z
+        verified
+
+    let verify (tx: Tx) =
+        if get_fee tx < 0UL then
+            false
+        else
+            let mutable verified = true
+            for i in [0..tx.TxIns.Length - 1] do
+                if verified then
+                    let tx_in = tx.TxIns[i]
+                    verified <- verify_input tx i
+            verified
