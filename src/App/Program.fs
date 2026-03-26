@@ -195,4 +195,21 @@ let main args =
     let eval, stack =  combined_script.Evaluate 0
     printfn "%A %A" eval stack
 
+    let bytes = decode_base58_checksum "mvm74FACaagz94rjWbNmW2EmhJdmEGcxpa"
+    let hex = bytes_to_hex bytes
+    let prev_tx = bytes_from_hex "0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299"
+    let prev_index = 13u
+    let tx_in = TxIn.Create(prev_tx, prev_index)
+    let tx_out = []
+    let change_amount = 33000000UL
+    let change_h160 = decode_base58_checksum "mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2"
+    let change_script = TxHelper.pk2pkh_script change_h160
+    let change_output = TxOut.Create(change_amount, change_script)
+    let target_amount = 10000000UL
+    let target_h160 = decode_base58_checksum "mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf"
+    let target_script = TxHelper.pk2pkh_script target_h160
+    let target_output = TxOut.Create(target_amount, target_script)
+    let tx = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
+    printfn "tx=%A" tx
+
     0 // return an integer exit code

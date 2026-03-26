@@ -187,3 +187,6 @@ module TxHelper =
                     let tx_in = tx.TxIns[i]
                     verified <- verify_input tx i
             verified
+
+    let pk2pkh_script (h160: byte[]) = 
+        script.Script.Create [ op.Code op.OP_DUP; op.Code op.OP_HASH160; op.Data h160; op.Code op.OP_EQUALVERIFY; op.Code op.OP_CHECKSIG ]

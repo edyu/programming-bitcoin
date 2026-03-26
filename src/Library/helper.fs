@@ -61,6 +61,14 @@ let hash160 (bytes: byte[]) =
     use sha256 = SHA256.Create()
     sha256.ComputeHash bytes |> ripemd160
 
+let num_to_big_endian (i: bigint) (len: int) =
+    let result = Array.zeroCreate len
+    let bytes = i.ToByteArray()
+    let len = min bytes.Length len
+    Array.Copy(bytes, result, len)
+    Array.Reverse result
+    result
+
 let bytes_to_hex bytes =
     BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant()
 
@@ -92,6 +100,7 @@ let lstrip (bytes: byte[]) (pre: byte) : byte[] =
     else
         bytes[index..]
 
+[<Literal>]
 let BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
 let base58 (s: byte[]) =
@@ -110,6 +119,19 @@ let base58 (s: byte[]) =
 
 let base58_checksum (s: byte[]) =
     base58 <| Array.concat [ s; (hash256 s)[0..3] ]
+
+let decode_base58_checksum (s: string) =
+    let mutable num : bigint = bigint.Zero
+    for c in s do
+        num <- num * bigint 58
+        num <- num + bigint(BASE58_ALPHABET.IndexOf c)
+    let combined = num_to_big_endian num 25
+    let checksum = combined[combined.Length-4..]
+    let hash = hash256 combined[..combined.Length-5]
+    if hash[0..3] <> checksum then
+        failwith $"bad address: {bytes_to_hex checksum} {bytes_to_hex hash[0..3]}"
+    else
+        combined[1..combined.Length-5]
 
 let little_endian_to_int (bytes: byte[]) =
     if not BitConverter.IsLittleEndian then
