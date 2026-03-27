@@ -6,7 +6,7 @@ type Script = private { program: op.Cmd list } with
             | op.Code c -> op.code_names[c]
             | op.Data d -> helper.bytes_to_hex d
         let ops = List.map mapfunc this.program
-        "[ " + String.concat "; " ops + " ]"
+        String.concat " " ops
 
     static member Empty =
         { program = [] }

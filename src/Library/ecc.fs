@@ -251,5 +251,5 @@ type PrivateKey = private { secret: bigint; point: S256Point } with
             s <- N - s
         { r = r; s = s}
 
-    static member Create s =
-        { secret = s; point = s * S256Point.G }
+    static member Create secret =
+        { secret = secret; point = secret * S256Point.G }

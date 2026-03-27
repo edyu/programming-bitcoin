@@ -6,6 +6,7 @@ open Xunit
 open Library
 open ecc
 open helper
+open script
 open tx
 
 [<Fact>]
@@ -271,10 +272,10 @@ let ``test transaction id`` () =
     // first satoshi -> hal finney
     Assert.True <| (tx.Id = "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16")
 
-// [<Fact>]
-// let ``test transaction fetch`` () =
-//     let tx = TxHelper.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" false
-//     Assert.True <| (tx.Id = "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da")
+[<Fact>]
+let ``test transaction fetch`` () =
+    let tx = TxHelper.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" false
+    Assert.True <| (tx.Id = "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da")
 
 // [<Fact>]
 // let ``test transaction fee`` () =
@@ -325,13 +326,9 @@ let ``test script evaluation`` () =
     let secb = bytes_from_hex "04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34"
     let sigb = bytes_from_hex "3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601"
     let secba = Array.concat [ helper.encode_varint <| uint64 secb.Length + 2UL; [| byte secb.Length |]; secb; [| 0xacuy |] ]
-    use stream_pubkey = new MemoryStream(secba)
-    let script_pubkey = script.Script.Parse stream_pubkey
     let sigba = Array.concat [ helper.encode_varint <| uint64 sigb.Length + 1UL; [| byte sigb.Length |]; sigb ]
-    use stream_sig = new MemoryStream(sigba)
-    let script_sig = script.Script.Parse stream_sig
-    let combined_script = script_sig + script_pubkey
-    let eval, _ = combined_script.Evaluate z
+    let script_sig = Script.Create [ op.Data sigba; op.Data secba ]
+    let eval, _ = script_sig.Evaluate z
     Assert.True eval
 
 [<Fact>]
@@ -473,7 +470,7 @@ let ``test verify_input`` () =
     let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
     use stream = new MemoryStream(raw_tx)
     let tx = Tx.Parse stream
-    Assert.True <| (TxHelper.verify_input tx 0)
+    Assert.True <| TxHelper.verify_input tx 0
 
 [<Fact>]
 let ``test verify`` () =
@@ -482,19 +479,68 @@ let ``test verify`` () =
     let tx = Tx.Parse stream
     Assert.True <| (TxHelper.verify tx)
 
+[<Fact>]
+let ``transaction creation`` () =
+    let prev_tx = bytes_from_hex "0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299"
+    let prev_index = 13u
+    let tx_in = TxIn.Create(prev_tx, prev_index)
+    let tx_out = []
+    let change_amount = 33000000UL
+    let change_h160 = decode_base58_checksum "mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2"
+    let change_script = TxHelper.p2pkh_script change_h160
+    let change_output = TxOut.Create(change_amount, change_script)
+    let target_amount = 10000000UL
+    let target_h160 = decode_base58_checksum "mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf"
+    let target_script = TxHelper.p2pkh_script target_h160
+    let target_output = TxOut.Create(target_amount, target_script)
+    let tx = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
+    Assert.True (tx.Id = "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11")
+
 // [<Fact>]
-// let ``transaction creation`` () =
-//     let prev_tx = bytes_from_hex "0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299"
-//     let prev_index = 13u
+// let ``transaction signing`` () =
+    // let z = TxHelper.sig_hash tx 0
+    // let private_key = PrivateKey.Create 8676309
+    // let der = (private_key.Sign z).Der
+    // let sigb = Array.concat [ der; int_to_big_endian(int SIGHASH_ALL, 1) ]
+    // let sigba = Array.concat [ helper.encode_varint <| uint64 sigb.Length + 1UL; [| byte sigb.Length |]; sigb ]
+    // let secb = private_key.Point.Sec ()
+    // let secba = Array.concat [ helper.encode_varint <| uint64 secb.Length + 2UL; [| byte secb.Length |]; secb; [| 0xacuy |] ]
+    // let script_sig = script.Script.Create [ op.Data sigba; op.Data secba ]
+    // let tx_in = TxIn.Create(prev_tx, prev_index, script_sig)
+    // let transaction = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
+    // printfn $"{bytes_to_hex transaction.Serialize}"
+
+// [<Fact>]
+// let ``create new transaction`` () =
+//     let hash = hash256_string "Jimmy Song secret"
+//     printfn $"{bytes_to_hex hash}"
+//     let secret = little_endian_to_int <| hash256_string "Jimmy Song secret"
+//     let private_key = PrivateKey.Create secret
+//     printfn $"{private_key.Point.Address(true, true)}"
+
+// [<Fact>]
+// let ``transaction creation 2`` () =
+//     let prev_tx = bytes_from_hex "75a1c4bc671f55f626dda1074c7725991e6f68b8fcefcfca7b64405ca3b45f1c"
+//     let prev_index = 1u
 //     let tx_in = TxIn.Create(prev_tx, prev_index)
-//     let tx_out = []
-//     let change_amount = 33000000UL
+//     let change_amount = uint64(0.009*100000000.0)
 //     let change_h160 = decode_base58_checksum "mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2"
-//     let change_script = TxHelper.pk2pkh_script change_h160
+//     printfn $"change_h160={bytes_to_hex change_h160}"
+//     let change_script = TxHelper.p2pkh_script change_h160
 //     let change_output = TxOut.Create(change_amount, change_script)
-//     let target_amount = 10000000UL
-//     let target_h160 = decode_base58_checksum "mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf"
-//     let target_script = TxHelper.pk2pkh_script target_h160
+//     let target_amount = uint64(0.01*100000000.0)
+//     let target_h160 = decode_base58_checksum "miKegze5FQNCnGw6PKyqUbYUeBa4x2hFeM"
+//     printfn $"target_h160={bytes_to_hex target_h160}"
+//     let target_script = TxHelper.p2pkh_script target_h160
 //     let target_output = TxOut.Create(target_amount, target_script)
-//     let tx = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
+//     // let tx = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
+//     let tx = Tx.Create(1u, [| tx_in |], [| target_output; change_output |], 0u)
+//     let secret = 8675309
+//     let priv = PrivateKey.Create secret
+//     let signed, newtx = TxHelper.sign_input tx 0 priv
+//     let serialized = bytes_to_hex newtx.Serialize
+//     printfn $"signed\n{serialized}"
+//     let bytes = "01000000011c5fb4a35c40647bcacfeffcb8686f1e9925774c07a1dd26f6551f67bcc4a175010000006b483045022100a08ebb92422b3599a2d2fcdaa11f8f807a66ccf33e7f4a9ff0a3c51f1b1ec5dd02205ed21dfede5925362b8d9833e908646c54be7ac6664e31650159e8f69b6ca539012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff0240420f00000000001976a9141ec51b3654c1f1d0f4929d11a1f702937eaf50c888ac9fbb0d00000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac00000000"
+//     printfn $"serialized.len={serialized.Length} compare.len={bytes.Length}"
+//     Assert.True ((serialized = "01000000011c5fb4a35c40647bcacfeffcb8686f1e9925774c07a1dd26f6551f67bcc4a175010000006b483045022100a08ebb92422b3599a2d2fcdaa11f8f807a66ccf33e7f4a9ff0a3c51f1b1ec5dd02205ed21dfede5925362b8d9833e908646c54be7ac6664e31650159e8f69b6ca539012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff0240420f00000000001976a9141ec51b3654c1f1d0f4929d11a1f702937eaf50c888ac9fbb0d00000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac00000000"))
 

@@ -19,7 +19,7 @@ type TxIn = private { prev_tx: byte[]; prev_index: uint32; script_sig: script.Sc
         let prev_index = helper.int_to_little_endian(uint64 this.prev_index, 4)
         let script = this.ScriptSig.Serialize
         let sequence = helper.int_to_little_endian(uint64 this.sequence, 4)
-        Array.concat [ this.prev_tx; prev_index; script; sequence ]
+        Array.concat [ Array.rev this.prev_tx; prev_index; script; sequence ]
     override this.ToString (): string =
         $"{helper.bytes_to_hex this.prev_tx}:{this.prev_index}"
     static member Create(prev_tx, prev_index, ?script_sig0, ?sequence0) =
@@ -35,7 +35,7 @@ type TxIn = private { prev_tx: byte[]; prev_index: uint32; script_sig: script.Sc
         let script = script.Script.Parse stream
         bytesRead <- stream.Read(buffer4, 0, 4)
         let sequence = uint32 <| helper.little_endian_to_int buffer4
-        TxIn.Create(prev_tx, prev_index, script, sequence)
+        TxIn.Create(Array.rev prev_tx, prev_index, script, sequence)
 
 type TxOut = private { amount: uint64; script_pubkey: script.Script } with
     member this.Amount = this.amount
@@ -130,7 +130,7 @@ module TxHelper =
         cache.Item tx_id
 
     let get_prev_tx (tx_in: TxIn) : Tx =
-        fetch (helper.bytes_to_hex <| Array.rev tx_in.PrevTx) false
+        fetch (helper.bytes_to_hex <| tx_in.PrevTx) false
 
     let get_output_value (tx_in: TxIn) : uint64 =
         let prev_tx = get_prev_tx tx_in
@@ -158,7 +158,7 @@ module TxHelper =
             let script_pubkey =
                 if i = index then get_script_pubkey tx_in
                 else script.Script.Empty
-            let new_in = TxIn.Create(tx_in.PrevTx, tx_in.PrevIndex, script_pubkey, tx_in.sequence) 
+            let new_in = TxIn.Create(tx_in.PrevTx, tx_in.PrevIndex, script_pubkey, tx_in.sequence)
             tx_ins <- Array.concat [ tx_ins; new_in.Serialize ]
         let num_txouts = helper.encode_varint <| uint64 tx.TxOuts.Length
         let mutable tx_outs = [||]
@@ -188,5 +188,20 @@ module TxHelper =
                     verified <- verify_input tx i
             verified
 
-    let pk2pkh_script (h160: byte[]) = 
+    let p2pkh_script (h160: byte[]) =
         script.Script.Create [ op.Code op.OP_DUP; op.Code op.OP_HASH160; op.Data h160; op.Code op.OP_EQUALVERIFY; op.Code op.OP_CHECKSIG ]
+
+    let sign_input (tx: Tx) (index: int) (private_key: ecc.PrivateKey) =
+        let z = sig_hash tx index
+        let der = (private_key.Sign z).Der
+        let sigb = Array.concat [ der; helper.int_to_big_endian(int SIGHASH_ALL, 1) ]
+        let secb = private_key.Point.Sec ()
+        let secba = Array.concat [ helper.encode_varint <| uint64 secb.Length + 2UL; [| byte secb.Length |]; secb; [| 0xacuy |] ]
+        let sigba = Array.concat [ helper.encode_varint <| uint64 sigb.Length + 1UL; [| byte sigb.Length |]; sigb ]
+        let script_sig = script.Script.Create [ op.Data sigba; op.Data secba ]
+        let mutable tx_ins = tx.TxIns
+        let prev_in = tx_ins[index]
+        let tx_in = TxIn.Create(prev_in.PrevTx, prev_in.PrevIndex, script_sig)
+        tx_ins[index] <- tx_in
+        let new_tx = Tx.Create(tx.Version, tx_ins, tx.TxOuts, tx.Locktime)
+        verify_input new_tx index, new_tx
