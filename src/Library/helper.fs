@@ -234,3 +234,7 @@ let get_async (url: string) =
         let! body = response.Content.ReadAsStringAsync() |> Async.AwaitTask
         return body
     }
+
+let list_drop = List.skip
+
+let list_remove i list = List.take i list @ List.skip (i + 1) list

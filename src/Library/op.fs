@@ -507,7 +507,7 @@ let op_roll (stack: Stack) =
                 false, tail
             else
                 let newhead = List.item n tail
-                true, newhead :: List.take n tail @ List.skip (n + 1) tail
+                true, newhead :: helper.list_remove n tail
         | _ -> false, stack
 
 let op_rot (stack: Stack) =
@@ -560,7 +560,45 @@ let op_checksigverify (stack: Stack) (z: bigint) =
     state1 && state2, newstack2
 
 let op_checkmultisig (stack: Stack) (z: bigint) =
-    false, stack
+    if stack.IsEmpty then
+        false, stack
+    else
+        let head = stack.Head
+        let stack = stack.Tail
+        let n = decode_num head
+        if stack.Length < n + 1 then
+            false, stack
+        else
+            let sec_pubkeys = List.take n stack
+            let stack = List.skip n stack
+            let m = decode_num stack.Head
+            if m > n then
+                false, stack
+            else
+                // off-by-one remove OP_0
+                let stack = stack.Tail
+                if stack.Length < m + 1 then
+                    false, stack
+                else
+                    // remove SIGHASH_ALL
+                    let der_signatures = List.take m stack |> List.map (fun (s: byte[]) -> s[0..s.Length-1])
+                    let stack = List.skip m stack
+                    let mutable points = List.map (fun s -> ecc.S256Point.Parse s) sec_pubkeys 
+                    let sigs = List.map (fun s -> ecc.Signature.Parse s) der_signatures
+                    let verify (skip, ps: List<ecc.S256Point>) s =
+                        if not skip then
+                            try
+                                let i = List.findIndex (fun (p: ecc.S256Point) -> p.Verify z s) ps
+                                false, helper.list_remove i ps
+                            with
+                                | _ -> true, ps
+                        else
+                            skip, points
+                    let _, points = List.fold verify (false, points) sigs
+                    if points.Length = n - m then
+                        true, encode_num 1 :: stack
+                    else
+                        true, encode_num 0 :: stack
 
 let op_checkmultisigverify (stack: Stack) (z: bigint) =
     let state1, newstack1 = op_checkmultisig stack z
