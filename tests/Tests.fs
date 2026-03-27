@@ -510,13 +510,12 @@ let ``transaction creation`` () =
     // let transaction = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
     // printfn $"{bytes_to_hex transaction.Serialize}"
 
-// [<Fact>]
-// let ``create new transaction`` () =
-//     let hash = hash256_string "Jimmy Song secret"
-//     printfn $"{bytes_to_hex hash}"
-//     let secret = little_endian_to_int <| hash256_string "Jimmy Song secret"
-//     let private_key = PrivateKey.Create secret
-//     printfn $"{private_key.Point.Address(true, true)}"
+[<Fact>]
+let ``create new transaction`` () =
+    let hash = hash256_string "Jimmy Song secret"
+    let secret = little_endian_to_bigint <| hash256_string "Jimmy Song secret"
+    let private_key = PrivateKey.Create secret
+    Assert.True ((private_key.Point.Address(true, true) = "mn81594PzKZa9K3Jyy1ushpuEzrnTnxhVg"))
 
 // [<Fact>]
 // let ``transaction creation 2`` () =

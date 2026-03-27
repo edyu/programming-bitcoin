@@ -75,8 +75,11 @@ let bytes_to_hex bytes =
 let bytes_from_hex (hex: string) =
     Convert.FromHexString hex
 
-let bigint_from_bytes bytes =
+let bigint_from_bytes (bytes: byte[]) =
     bytes_to_hex bytes |> bigint_from_hex
+
+let little_endian_to_bigint (bytes: byte[]) =
+    bigint_from_bytes <| Array.rev bytes
 
 let bigint_to_bytes (i: bigint) =
     let result = Array.zeroCreate 32
