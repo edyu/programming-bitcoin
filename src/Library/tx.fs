@@ -115,6 +115,12 @@ type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime:
     member this.IsCoinbase =
         this.TxIns.Length = 1 && this.TxIns[0].PrevIndex = 0xffffffffu && this.TxIns[0].PrevTx = Array.zeroCreate 32
 
+    member this.CoinbaseHeight =
+        if not this.IsCoinbase then None
+        else match this.TxIns[0].ScriptSig.Program[0] with
+                | op.Data bytes -> Some <| helper.little_endian_to_int bytes
+                | _ -> None
+
 module TxHelper =
     let cache = new Dictionary<string, Tx>()
 

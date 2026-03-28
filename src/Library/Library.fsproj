@@ -11,6 +11,7 @@
     <Compile Include="op.fs" />
     <Compile Include="script.fs" />
     <Compile Include="tx.fs" />
+    <Compile Include="block.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 

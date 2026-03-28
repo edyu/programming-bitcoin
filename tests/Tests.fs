@@ -588,6 +588,52 @@ let ``test signature validation`` () =
 
 [<Fact>]
 let ``test checking coinbase`` () =
-    let txin = TxIn.Create(Array.zeroCreate 32, 0xffffffffu)
+    let script_hex = "4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73"
+    use stream = new MemoryStream(bytes_from_hex script_hex)
+    let genesis = Script.Parse stream
+    match List.item 2 genesis.Program with
+    | op.Data message -> Assert.True ((message = Text.Encoding.ASCII.GetBytes "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"))
+    | _ -> Assert.True false
+    let txin = TxIn.Create(Array.zeroCreate 32, 0xffffffffu, genesis)
     let tx = Tx.Create(1u, [|txin|], [||], 0u)
     Assert.True tx.IsCoinbase
+    Assert.True (tx.CoinbaseHeight = Some 486604799UL)
+
+[<Fact>]
+let ``test block parsing`` () =
+    let bytes = bytes_from_hex "020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d"
+    use stream = new MemoryStream(bytes)
+    let block = block.Block.Parse stream
+    Assert.True (block.Version = 0x20000002u)
+    let want = bytes_from_hex "000000000000000000fd0c220a0a8c3bc5a7b487e8c8de0dfa2373b12894c38e"
+    Assert.True (block.PrevBlock = want)
+    let want = bytes_from_hex "be258bfd38db61f957315c3f9e9c5e15216857398d50402d5089a8e0fc50075b"
+    Assert.True (block.MerkleRoot = want)
+    Assert.True (block.Timestamp = 0x59a7771eu)
+    Assert.True (block.Bits = bytes_from_hex "e93c0118")
+    Assert.True (block.Nonce = bytes_from_hex "a4ffd71d")
+
+[<Fact>]
+let ``test block serialization`` () =
+    let bytes = bytes_from_hex "020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d"
+    use stream = new MemoryStream(bytes)
+    let block = block.Block.Parse stream
+    Assert.True ((bytes = block.Serialize))
+
+[<Fact>]
+let ``test block hash`` () =
+    let bytes = bytes_from_hex "020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d"
+    use stream = new MemoryStream(bytes)
+    let block = block.Block.Parse stream
+    Assert.True ((block.hash = bytes_from_hex "0000000000000000007e9e4c586439b0cdbe13b1370bdd9435d76a644d047523"))
+
+[<Fact>]
+let ``test block bip9`` () =
+    let bytes = bytes_from_hex "020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d"
+    use stream = new MemoryStream(bytes)
+    let bk = block.Block.Parse stream
+    Assert.True bk.bip9
+    let bytes = bytes_from_hex "0400000039fa821848781f027a2e6dfabbf6bda920d9ae61b63400030000000000000000ecae536a304042e3154be0e3e9a8220e5568c3433a9ab49ac4cbb74f8df8e8b0cc2acf569fb9061806652c27"
+    use stream = new MemoryStream(bytes)
+    let bk = block.Block.Parse stream
+    Assert.False bk.bip9
