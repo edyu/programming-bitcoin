@@ -112,6 +112,9 @@ type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime:
         let locktime = helper.int_to_little_endian(uint64 this.Locktime, 4)
         Array.concat [ version; num_txins; tx_ins; num_txouts; tx_outs; locktime ]
 
+    member this.IsCoinbase =
+        this.TxIns.Length = 1 && this.TxIns[0].PrevIndex = 0xffffffffu && this.TxIns[0].PrevTx = Array.zeroCreate 32
+
 module TxHelper =
     let cache = new Dictionary<string, Tx>()
 

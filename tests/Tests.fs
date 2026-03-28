@@ -585,3 +585,9 @@ let ``test signature validation`` () =
     let point = S256Point.Parse sec
     let sign = Signature.Parse der
     Assert.True (point.Verify z sign)
+
+[<Fact>]
+let ``test checking coinbase`` () =
+    let txin = TxIn.Create(Array.zeroCreate 32, 0xffffffffu)
+    let tx = Tx.Create(1u, [|txin|], [||], 0u)
+    Assert.True tx.IsCoinbase
