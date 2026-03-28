@@ -1,6 +1,8 @@
 module script
 
 type Script = private { program: op.Cmd list } with
+    member this.Program = this.program
+
     override this.ToString() =
         let mapfunc = function
             | op.Code c -> op.code_names[c]
@@ -68,12 +70,24 @@ type Script = private { program: op.Cmd list } with
     static member (+) (self, other : Script) =
         { program = self.program @ other.program }
 
+    member this.IsPublicKeyHash =
+        if this.program.Length <> 5 then false 
+        else match this.program with
+                | op.Code op.OP_DUP :: op.Code op.OP_HASH160 ::op.Data h160 :: op.Code op.OP_EQUALVERIFY :: op.Code op.OP_CHECKSIG :: [] when h160.Length = 20 -> true
+                | _ -> false
+
+    member this.IsScriptHash =
+        if this.program.Length <> 3 then false
+        else match this.program with
+                | op.Code op.OP_HASH160 :: op.Data h160 :: op.Code op.OP_EQUAL :: [] when h160.Length = 20 -> true
+                | _ -> false
+
     member this.Evaluate z =
         let mutable stack = op.Stack.Empty
         let mutable altstack = op.Stack.Empty
-        let mutable state = true
+        let mutable ok = true
         let mutable cmds = this.program
-        while state && not cmds.IsEmpty do
+        while ok && not cmds.IsEmpty do
             let cmd = cmds.Head
             cmds <- cmds.Tail
             match cmd with
@@ -81,14 +95,14 @@ type Script = private { program: op.Cmd list } with
                 match opcode with
                 | op.OP_IF | op.OP_NOTIF ->
                     let opfunc = op.code_if_functions[opcode]
-                    let newstate, newstack, newcmds = opfunc stack cmds
-                    state <- newstate
+                    let new_ok, newstack, newcmds = opfunc stack cmds
+                    ok <- new_ok
                     stack <- newstack
                     cmds <- newcmds
                 | op.OP_TOALTSTACK | op.OP_FROMALTSTACK ->
                     let opfunc = op.code_altstack_functions[opcode]
-                    let newstate, newstack, newaltstack = opfunc stack altstack
-                    state <- newstate
+                    let new_ok, newstack, newaltstack = opfunc stack altstack
+                    ok <- new_ok
                     stack <- newstack
                     altstack <- newaltstack
                 | op.OP_CHECKSIG
@@ -96,20 +110,56 @@ type Script = private { program: op.Cmd list } with
                 | op.OP_CHECKMULTISIG
                 | op.OP_CHECKMULTISIGVERIFY ->
                     let opfunc = op.code_sig_functions[opcode]
-                    let newstate, newstack = opfunc stack z
-                    state <- newstate
+                    let new_ok, newstack = opfunc stack z
+                    ok <- new_ok
                     stack <- newstack
                 | _ ->
                     let opfunc = op.code_functions[opcode]
-                    let newstate, newstack = opfunc stack
-                    state <- newstate
+                    let new_ok, newstack = opfunc stack
+                    ok <- new_ok
                     stack <- newstack
             | op.Data bytes ->
                 stack <- bytes :: stack
-
-        if not state || stack.IsEmpty then
+                match cmds with
+                | op.Code op.OP_HASH160 :: op.Data h160 :: op.Code op.OP_EQUAL :: [] when h160.Length = 20 ->
+                    cmds <- []
+                    let new_ok, newstack = op.op_hash160 stack
+                    ok <- new_ok
+                    stack <- newstack
+                    if ok then
+                        stack <- h160 :: stack
+                        let new_ok, newstack = op.op_equal stack
+                        ok <- new_ok
+                        stack <- newstack
+                        if ok then
+                            let new_ok, newstack = op.op_verify stack
+                            ok <- new_ok
+                            stack <- newstack
+                            if ok then
+                                let redeem_script = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]  
+                                use stream = new System.IO.MemoryStream(redeem_script)
+                                let new_script = Script.Parse stream
+                                cmds <- cmds @ new_script.program
+                | _ -> () // do nothing
+        if not ok || stack.IsEmpty then
             false, stack
         else if not stack.IsEmpty && op.decode_num stack.Head = 0 then
             false, stack
         else
             true, stack
+
+    static member h160_to_p2pkh_address(h160: byte[], ?testnet0: bool) =
+        let testnet = defaultArg testnet0 false
+        let prefix = if testnet then [| 0x6fuy |] else [| 0x00uy |]
+        helper.base58_checksum <| Array.concat [ prefix; h160 ]
+
+    static member h160_to_p2sh_address(h160: byte[], ?testnet0: bool) =
+        let testnet = defaultArg testnet0 false
+        let prefix = if testnet then [| 0xc4uy |] else [| 0x05uy |]
+        helper.base58_checksum <| Array.concat [ prefix; h160 ]
+
+let p2pkh_script (h160: byte[]) =
+    Script.Create [ op.Code op.OP_DUP; op.Code op.OP_HASH160; op.Data h160; op.Code op.OP_EQUALVERIFY; op.Code op.OP_CHECKSIG ]
+
+let p2sh_script (h160: byte[]) =
+    Script.Create [ op.Code op.OP_HASH160; op.Data h160; op.Code op.OP_EQUAL ]

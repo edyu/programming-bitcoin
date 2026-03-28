@@ -149,14 +149,17 @@ module TxHelper =
             output <- output + tx_out.Amount
         input - output
 
-    let sig_hash (tx: Tx) (index: int) =
+    let sig_hash (tx: Tx) (index: int) (redeem_script: script.Script option) =
         let version = helper.int_to_little_endian(uint64 tx.Version, 4)
         let num_txins = helper.encode_varint <| uint64 tx.TxIns.Length
         let mutable tx_ins = [||]
         for i in [0..tx.TxIns.Length - 1] do
             let tx_in = tx.TxIns[i]
             let script_pubkey =
-                if i = index then get_script_pubkey tx_in
+                if i = index then
+                    match redeem_script with
+                    | Some redeem_script -> redeem_script
+                    | None -> get_script_pubkey tx_in
                 else script.Script.Empty
             let new_in = TxIn.Create(tx_in.PrevTx, tx_in.PrevIndex, script_pubkey, tx_in.sequence)
             tx_ins <- Array.concat [ tx_ins; new_in.Serialize ]
@@ -172,7 +175,16 @@ module TxHelper =
     let verify_input (tx: Tx) (index: int) =
         let tx_in = tx.TxIns[index]
         let script_pubkey = get_script_pubkey tx_in
-        let z = sig_hash tx index
+        let redeem_script = if script_pubkey.IsScriptHash then
+                                match tx_in.ScriptSig.Program.Head with
+                                    | op.Data redeem ->
+                                        let raw_redeem = Array.concat [ helper.encode_varint <| uint64 redeem.Length; redeem ]
+                                        use stream = new MemoryStream(raw_redeem)
+                                        Some <| script.Script.Parse stream
+                                    | _ -> failwith "verify_input: can't find redeem script"
+                            else
+                                None
+        let z = sig_hash tx index redeem_script
         let combined_script = tx_in.ScriptSig + script_pubkey
         let verified, _ = combined_script.Evaluate z
         verified
@@ -188,11 +200,8 @@ module TxHelper =
                     verified <- verify_input tx i
             verified
 
-    let p2pkh_script (h160: byte[]) =
-        script.Script.Create [ op.Code op.OP_DUP; op.Code op.OP_HASH160; op.Data h160; op.Code op.OP_EQUALVERIFY; op.Code op.OP_CHECKSIG ]
-
     let sign_input (tx: Tx) (index: int) (private_key: ecc.PrivateKey) =
-        let z = sig_hash tx index
+        let z = sig_hash tx index None
         let der = (private_key.Sign z).Der
         let sigb = Array.concat [ der; helper.int_to_big_endian(int SIGHASH_ALL, 1) ]
         let secb = private_key.Point.Sec ()

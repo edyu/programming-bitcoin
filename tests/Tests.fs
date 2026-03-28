@@ -461,7 +461,7 @@ let ``test sighash`` () =
     let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
     use stream = new MemoryStream(raw_tx)
     let tx = Tx.Parse stream
-    let sighash = TxHelper.sig_hash tx 0
+    let sighash = TxHelper.sig_hash tx 0 None
     let result = bigint_from_hex "27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6"
     Assert.True <| (sighash = result)
 
@@ -480,25 +480,25 @@ let ``test verify`` () =
     Assert.True <| (TxHelper.verify tx)
 
 [<Fact>]
-let ``transaction creation`` () =
+let ``test transaction creation`` () =
     let prev_tx = bytes_from_hex "0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299"
     let prev_index = 13u
     let tx_in = TxIn.Create(prev_tx, prev_index)
     let tx_out = []
     let change_amount = 33000000UL
     let change_h160 = decode_base58_checksum "mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2"
-    let change_script = TxHelper.p2pkh_script change_h160
+    let change_script = p2pkh_script change_h160
     let change_output = TxOut.Create(change_amount, change_script)
     let target_amount = 10000000UL
     let target_h160 = decode_base58_checksum "mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf"
-    let target_script = TxHelper.p2pkh_script target_h160
+    let target_script = p2pkh_script target_h160
     let target_output = TxOut.Create(target_amount, target_script)
     let tx = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
     Assert.True (tx.Id = "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11")
 
 // [<Fact>]
-// let ``transaction signing`` () =
-    // let z = TxHelper.sig_hash tx 0
+// let ``test transaction signing`` () =
+    // let z = TxHelper.sig_hash tx 0 None
     // let private_key = PrivateKey.Create 8676309
     // let der = (private_key.Sign z).Der
     // let sigb = Array.concat [ der; int_to_big_endian(int SIGHASH_ALL, 1) ]
@@ -511,14 +511,14 @@ let ``transaction creation`` () =
     // printfn $"{bytes_to_hex transaction.Serialize}"
 
 [<Fact>]
-let ``create new transaction`` () =
+let ``test new transaction creation`` () =
     let hash = hash256_string "Jimmy Song secret"
     let secret = little_endian_to_bigint <| hash256_string "Jimmy Song secret"
     let private_key = PrivateKey.Create secret
     Assert.True ((private_key.Point.Address(true, true) = "mn81594PzKZa9K3Jyy1ushpuEzrnTnxhVg"))
 
 // [<Fact>]
-// let ``transaction creation 2`` () =
+// let ``test transaction creation 2`` () =
 //     let prev_tx = bytes_from_hex "75a1c4bc671f55f626dda1074c7725991e6f68b8fcefcfca7b64405ca3b45f1c"
 //     let prev_index = 1u
 //     let tx_in = TxIn.Create(prev_tx, prev_index)
@@ -543,3 +543,45 @@ let ``create new transaction`` () =
 //     printfn $"serialized.len={serialized.Length} compare.len={bytes.Length}"
 //     Assert.True ((serialized = "01000000011c5fb4a35c40647bcacfeffcb8686f1e9925774c07a1dd26f6551f67bcc4a175010000006b483045022100a08ebb92422b3599a2d2fcdaa11f8f807a66ccf33e7f4a9ff0a3c51f1b1ec5dd02205ed21dfede5925362b8d9833e908646c54be7ac6664e31650159e8f69b6ca539012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff0240420f00000000001976a9141ec51b3654c1f1d0f4929d11a1f702937eaf50c888ac9fbb0d00000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac00000000"))
 
+[<Fact>]
+let ``test p2sh address`` () =
+    let h160 = bytes_from_hex "74d691da1574e6b3c192ecfb52cc8984ee7b6c56"
+    let address = Script.h160_to_p2sh_address h160
+    Assert.True ((address = "3CLoMMyuoDQTPRD3XYZtCvgvkadrAdvdXh"))
+
+[<Fact>]
+let ``test signature validation`` () =
+    let hex_tx1 = "0100000001868278ed6ddfb6c1ed3ad5f8181eb0c7a385aa0836f01d5e4789e6bd304d87221a000000475221022626e955ea6ea6d98850c994f9107b036b1334f18ca8830bfff1295d21cfdb702103b287eaf122eea69030a0e9feed096bed8045c8b98bec453e1ffac7fbdbd4bb7152aeffffffff04d3b11400000000001976a914904a49878c0adfc3aa05de7afad2cc15f483a56a88ac7f400900000000001976a914418327e3f3dda4cf5b9089325a4b95abdfa0334088ac722c0c00000000001976a914ba35042cfe9fc66fd35ac2224eebdafd1028ad2788acdc4ace020000000017a91474d691da1574e6b3c192ecfb52cc8984ee7b6c56870000000001000000"
+    use stream = new MemoryStream(bytes_from_hex <| hex_tx1)
+    let tx = Tx.Parse stream
+    let z1 = bigint_from_bytes <| hash256 (bytes_from_hex hex_tx1)
+    let sec1 = bytes_from_hex <| "022626e955ea6ea6d98850c994f9107b036b1334f18ca8830bfff1295d21cfdb70"
+    let der1 = bytes_from_hex <| "3045022100dc92655fe37036f47756db8102e0d7d5e28b3beb83a8fef4f5dc0559bddfb94e02205a36d4e4e6c7fcd16658c50783e00c341609977aed3ad00937bf4ee942a89937"
+    let point1 = S256Point.Parse sec1
+    let sig1 = Signature.Parse der1
+    Assert.True (point1.Verify z1 sig1)
+
+    let hex_tx = "0100000001868278ed6ddfb6c1ed3ad5f8181eb0c7a385aa0836f01d5e4789e6bd304d87221a000000db00483045022100dc92655fe37036f47756db8102e0d7d5e28b3beb83a8fef4f5dc0559bddfb94e02205a36d4e4e6c7fcd16658c50783e00c341609977aed3ad00937bf4ee942a8993701483045022100da6bee3c93766232079a01639d07fa869598749729ae323eab8eef53577d611b02207bef15429dcadce2121ea07f233115c6f09034c0be68db99980b9a6c5e75402201475221022626e955ea6ea6d98850c994f9107b036b1334f18ca8830bfff1295d21cfdb702103b287eaf122eea69030a0e9feed096bed8045c8b98bec453e1ffac7fbdbd4bb7152aeffffffff04d3b11400000000001976a914904a49878c0adfc3aa05de7afad2cc15f483a56a88ac7f400900000000001976a914418327e3f3dda4cf5b9089325a4b95abdfa0334088ac722c0c00000000001976a914ba35042cfe9fc66fd35ac2224eebdafd1028ad2788acdc4ace020000000017a91474d691da1574e6b3c192ecfb52cc8984ee7b6c568700000000"
+    let hex_sec = "03b287eaf122eea69030a0e9feed096bed8045c8b98bec453e1ffac7fbdbd4bb71"
+    let hex_der = "3045022100da6bee3c93766232079a01639d07fa869598749729ae323eab8eef53577d611b02207bef15429dcadce2121ea07f233115c6f09034c0be68db99980b9a6c5e754022"
+    let hex_redeem_script = "475221022626e955ea6ea6d98850c994f9107b036b1334f18ca8830bfff1295d21cfdb702103b287eaf122eea69030a0e9feed096bed8045c8b98bec453e1ffac7fbdbd4bb7152ae"
+    let sec = bytes_from_hex hex_sec
+    let der = bytes_from_hex hex_der
+    use stream = new MemoryStream(bytes_from_hex <| hex_redeem_script)
+    let redeem_script = Script.Parse stream
+    use stream = new MemoryStream(bytes_from_hex <| hex_tx)
+    let tx = Tx.Parse stream
+    let mutable s = int_to_little_endian(uint64 tx.Version, 4)
+    s <- Array.concat [ s; encode_varint <| uint64 tx.TxIns.Length ]
+    let i = tx.TxIns[0]
+    let txin = TxIn.Create(i.PrevTx, i.PrevIndex, redeem_script, i.Sequence)
+    s <- Array.concat [ s; txin.Serialize ]
+    s <- Array.concat [ s; encode_varint <| uint64 tx.TxOuts.Length ]
+    for tx_out in tx.TxOuts do
+        s <- Array.concat [ s; tx_out.Serialize ]
+    s <- Array.concat [ s; int_to_little_endian(uint64 tx.Locktime, 4); int_to_little_endian(uint64 SIGHASH_ALL, 4) ]
+    let z = bigint_from_bytes <| hash256 s
+    Assert.True (bigint_to_hex z = "e71bfa115715d6fd33796948126f40a8cdd39f187e4afb03896795189fe1423c")
+    let point = S256Point.Parse sec
+    let sign = Signature.Parse der
+    Assert.True (point.Verify z sign)
