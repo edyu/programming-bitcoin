@@ -4,6 +4,7 @@ open Library
 open ecc
 open helper
 open tx
+open block
 
 [<EntryPoint>]
 let main args =
@@ -211,5 +212,16 @@ let main args =
     let target_output = TxOut.Create(target_amount, target_script)
     let tx = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
     printfn "tx=%A" tx
+
+    let last_bytes = bytes_from_hex "00000020fdf740b0e49cf75bb3d5168fb3586f7613dcc5cd89675b0100000000000000002e37b144c0baced07eb7e7b64da916cd3121f2427005551aeb0ec6a6402ac7d7f0e4235954d801187f5da9f5"
+    use stream = new MemoryStream(last_bytes)
+    let last_block = Block.Parse stream
+    let first_bytes = bytes_from_hex "000000201ecd89664fd205a37566e694269ed76e425803003628ab010000000000000000bfcade29d080d9aae8fd461254b041805ae442749f2a40100440fc0e3d5868e55019345954d80118a1721b2e"
+    use stream = new MemoryStream(last_bytes)
+    let first_block = Block.Parse stream
+    let time_differential = last_block.Timestamp - first_block.Timestamp
+    let new_bits = calculate_new_bits (target_to_bits last_block.target) time_differential
+    let new_target = bits_to_target new_bits
+    printfn "%A" (bigint_to_hex new_target)
 
     0 // return an integer exit code

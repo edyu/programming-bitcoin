@@ -583,7 +583,7 @@ let op_checkmultisig (stack: Stack) (z: bigint) =
                     // remove SIGHASH_ALL
                     let der_signatures = List.take m stack |> List.map (fun (s: byte[]) -> s[0..s.Length-1])
                     let stack = List.skip m stack
-                    let mutable points = List.map (fun s -> ecc.S256Point.Parse s) sec_pubkeys 
+                    let mutable points = List.map (fun s -> ecc.S256Point.Parse s) sec_pubkeys
                     let sigs = List.map (fun s -> ecc.Signature.Parse s) der_signatures
                     let verify (skip, ps: List<ecc.S256Point>) s =
                         if not skip then

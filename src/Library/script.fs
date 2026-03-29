@@ -71,7 +71,7 @@ type Script = private { program: op.Cmd list } with
         { program = self.program @ other.program }
 
     member this.IsPublicKeyHash =
-        if this.program.Length <> 5 then false 
+        if this.program.Length <> 5 then false
         else match this.program with
                 | op.Code op.OP_DUP :: op.Code op.OP_HASH160 ::op.Data h160 :: op.Code op.OP_EQUALVERIFY :: op.Code op.OP_CHECKSIG :: [] when h160.Length = 20 -> true
                 | _ -> false
@@ -136,7 +136,7 @@ type Script = private { program: op.Cmd list } with
                             ok <- new_ok
                             stack <- newstack
                             if ok then
-                                let redeem_script = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]  
+                                let redeem_script = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
                                 use stream = new System.IO.MemoryStream(redeem_script)
                                 let new_script = Script.Parse stream
                                 cmds <- cmds @ new_script.program

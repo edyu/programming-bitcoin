@@ -2,6 +2,32 @@ module block
 
 open System.IO
 
+[<Literal>]
+let TWO_WEEKS = 60u * 60u * 24u * 14u
+
+let bits_to_target (bits: byte[]) =
+    let exponent = int bits[3]
+    let coefficient = helper.little_endian_to_bigint bits[0..2]
+    coefficient * pown 256I (exponent - 3)
+
+let target_to_bits (target: bigint) =
+    let mutable raw_bytes = helper.bigint_to_bytes target
+    raw_bytes <- raw_bytes |> Seq.skipWhile (fun x -> x = 0uy) |> Array.ofSeq
+    let exponent, coefficient = if raw_bytes[0] > 0x7fuy then
+                                    raw_bytes.Length + 1, Array.concat [ [| 0uy |]; raw_bytes[0..1] ]
+                                else
+                                    raw_bytes.Length, raw_bytes[0..2]
+    Array.append (Array.rev coefficient) [| byte exponent |]
+
+let calculate_new_bits (previous_bits: byte[]) (time_differential: uint32) : byte[] =
+    let mutable time_differential = time_differential
+    if time_differential > TWO_WEEKS * 4u then
+        time_differential <- TWO_WEEKS * 4u
+    if time_differential < TWO_WEEKS / 4u then
+        time_differential <- TWO_WEEKS / 4u
+    let new_target = bits_to_target previous_bits * bigint time_differential / bigint TWO_WEEKS
+    target_to_bits new_target
+
 type Block = private { version: uint32; prev_block: byte[]; merkle_root: byte[]; timestamp: uint32; bits: byte[]; nonce: byte[] } with
     member this.Version = this.version
     member this.PrevBlock = this.prev_block
@@ -50,4 +76,13 @@ type Block = private { version: uint32; prev_block: byte[]; merkle_root: byte[];
         let nonce = Array.copy buffer4
         Block.Create(version, prev_block, merkle_root, timestamp, bits, nonce)
 
+    member this.target = bits_to_target this.Bits
 
+    member this.difficulty =
+        let lowest = bigint 0xffff * bigint.Pow(256I, 0x1d - 3)
+        lowest / this.target
+
+    member this.check_pow =
+        let hash = helper.hash256 this.Serialize
+        let proof = helper.little_endian_to_bigint hash
+        proof < this.target

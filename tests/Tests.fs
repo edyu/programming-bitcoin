@@ -8,6 +8,7 @@ open ecc
 open helper
 open script
 open tx
+open block
 
 [<Fact>]
 let ``test curve valid points`` () =
@@ -49,7 +50,7 @@ let ``test curve addition`` () =
     let x3 = FieldElement.Create 170 prime
     let y3 = FieldElement.Create 142 prime
     let p3 = Point.Create x3 y3 a b
-    Assert.True(p1+p2=p3)
+    Assert.Equal(p1+p2, p3)
 
     let x4 = FieldElement.Create 60 prime
     let y4 = FieldElement.Create 139 prime
@@ -58,7 +59,7 @@ let ``test curve addition`` () =
     let x5 = FieldElement.Create 220 prime
     let y5 = FieldElement.Create 181 prime
     let p5 = Point.Create x5 y5 a b
-    Assert.True(p3+p4=p5)
+    Assert.Equal(p3+p4, p5)
 
     let x6 = FieldElement.Create 47 prime
     let y6 = FieldElement.Create 71 prime
@@ -67,7 +68,7 @@ let ``test curve addition`` () =
     let x7 = FieldElement.Create 215 prime
     let y7 = FieldElement.Create 68 prime
     let p7 = Point.Create x7 y7 a b
-    Assert.True(p6+p2=p7)
+    Assert.Equal(p6+p2, p7)
 
     let x8 = FieldElement.Create 143 prime
     let y8 = FieldElement.Create 98 prime
@@ -76,7 +77,7 @@ let ``test curve addition`` () =
     let x9 = FieldElement.Create 76 prime
     let y9 = FieldElement.Create 66 prime
     let p9 = Point.Create x9 y9 a b
-    Assert.True(p8+p9=p6)
+    Assert.Equal(p8+p9, p6)
 
 [<Fact>]
 let ``test curve scalar multiplication`` () =
@@ -87,7 +88,7 @@ let ``test curve scalar multiplication`` () =
     let y = FieldElement.Create 86 prime
     let p = Point.Create x y a b
 
-    Assert.True(1*p=p)
+    Assert.Equal(1*p, p)
     Assert.True((7*p).IsInfinity)
 
 [<Fact>]
@@ -149,22 +150,22 @@ let ``test public key serialization`` () =
     let pk1c = pk1.Point.Sec ()
     let u1 = S256Point.Parse pk1u
     let c1 = S256Point.Parse pk1c
-    Assert.True(pk1.Point = c1)
-    Assert.True(pk1.Point = u1)
+    Assert.Equal(pk1.Point, c1)
+    Assert.Equal(pk1.Point, u1)
     let pk2 = PrivateKey.Create <| bigint.Pow(2018, 5)
     let pk2u = pk2.Point.Sec false
     let pk2c = pk2.Point.Sec ()
     let u2 = S256Point.Parse pk2u
     let c2 = S256Point.Parse pk2c
-    Assert.True(pk2.Point = c2)
-    Assert.True(pk2.Point = u2)
+    Assert.Equal(pk2.Point, c2)
+    Assert.Equal(pk2.Point, u2)
     let pk3 = PrivateKey.Create <| bigint_from_hex "0xdeadbeef12345"
     let pk3u = pk3.Point.Sec false
     let pk3c = pk3.Point.Sec ()
     let u3 = S256Point.Parse pk3u
     let c3 = S256Point.Parse pk3c
-    Assert.True(pk3.Point = c3)
-    Assert.True(pk3.Point = u3)
+    Assert.Equal(pk3.Point, c3)
+    Assert.Equal(pk3.Point, u3)
 
 [<Fact>]
 let ``test public key serialization 2`` () =
@@ -173,19 +174,19 @@ let ``test public key serialization 2`` () =
     let pk1c = pk1.Point.Sec ()
     let u1 = S256Point.Parse pk1u
     let c1 = S256Point.Parse pk1c
-    Assert.True((c1 = u1))
+    Assert.Equal(c1, u1)
     let pk2 = PrivateKey.Create <| bigint.Pow(2019, 5)
     let pk2u = pk2.Point.Sec false
     let pk2c = pk2.Point.Sec ()
     let u2 = S256Point.Parse pk2u
     let c2 = S256Point.Parse pk2c
-    Assert.True((c2 = u2))
+    Assert.Equal(c2, u2)
     let pk3 = PrivateKey.Create <| bigint_from_hex "0xdeadbeef54321"
     let pk3u = pk3.Point.Sec false
     let pk3c = pk3.Point.Sec ()
     let u3 = S256Point.Parse pk3u
     let c3 = S256Point.Parse pk3c
-    Assert.True <| (c3 = u3)
+    Assert.Equal(c3, u3)
 
 [<Fact>]
 let ``test signature serialization`` () =
@@ -207,47 +208,53 @@ let ``test base58`` () =
     let h158 = base58 h1b
     let h258 = base58 h2b
     let h358 = base58 h3b
-    Assert.True <| (h158 = "9MA8fRQrT4u8Zj8ZRd6MAiiyaxb2Y1CMpvVkHQu5hVM6")
-    Assert.True <| (h258 = "4fE3H2E6XMp4SsxtwinF7w9a34ooUrwWe4WsW1458Pd")
-    Assert.True <| (h358 = "EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7")
+    Assert.Equal(h158, "9MA8fRQrT4u8Zj8ZRd6MAiiyaxb2Y1CMpvVkHQu5hVM6")
+    Assert.Equal(h258, "4fE3H2E6XMp4SsxtwinF7w9a34ooUrwWe4WsW1458Pd")
+    Assert.Equal(h358, "EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7")
+    let addr = "mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf"
+    let h160 = helper.decode_base58_checksum addr |> bytes_to_hex
+    let want = "507b27411ccf7f16f10297de6cef3f291623eddf"
+    Assert.Equal(h160, want)
+    let got = base58_checksum(Array.concat [ [| 0x6fuy |]; bytes_from_hex h160 ])
+    Assert.Equal(got, addr)
 
 [<Fact>]
 let ``test address format`` () =
     let pk1 = PrivateKey.Create <| bigint 5002
     let p1 = pk1.Point
     let p1ut = p1.Address(false, true)
-    Assert.True <| (p1ut = "mmTPbXQFxboEtNRkwfh6K51jvdtHLxGeMA")
+    Assert.Equal(p1ut, "mmTPbXQFxboEtNRkwfh6K51jvdtHLxGeMA")
 
     let pk2 = PrivateKey.Create <| bigint.Pow(2020, 5)
     let p2 = pk2.Point
     let p2ct = p2.Address(true, true)
-    Assert.True <| (p2ct = "mopVkxp8UhXqRYbCYJsbeE1h1fiF64jcoH")
+    Assert.Equal(p2ct, "mopVkxp8UhXqRYbCYJsbeE1h1fiF64jcoH")
 
     let pk3 = PrivateKey.Create <| bigint_from_hex "0x12345deadbeef"
     let p3 = pk3.Point
     let p3cm = p3.Address ()
-    Assert.True <| (p3cm = "1F1Pn2y6pDb68E5nYJJeba4TLg2U7B6KF1")
+    Assert.Equal(p3cm, "1F1Pn2y6pDb68E5nYJJeba4TLg2U7B6KF1")
 
 [<Fact>]
 let ``test Wif format`` () =
     let pk1 = PrivateKey.Create <| bigint 5003
     let wif1 = pk1.Wif(true, true)
-    Assert.True <| (wif1 = "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8rFTv2sfUK")
+    Assert.Equal(wif1, "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8rFTv2sfUK")
 
     let pk2 = PrivateKey.Create <| bigint.Pow(2021, 5)
     let wif2 = pk2.Wif(false , true)
-    Assert.True <| (wif2 = "91avARGdfge8E4tZfYLoxeJ5sGBdNJQH4kvjpWAxgzczjbCwxic")
+    Assert.Equal(wif2, "91avARGdfge8E4tZfYLoxeJ5sGBdNJQH4kvjpWAxgzczjbCwxic")
 
     let pk3 = PrivateKey.Create <| bigint_from_hex "0x54321deadbeef"
     let wif3 = pk3.Wif ()
-    Assert.True <| (wif3 = "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgiuQJv1h8Ytr2S53a")
+    Assert.Equal(wif3, "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgiuQJv1h8Ytr2S53a")
 
 [<Fact>]
 let ``test little endian`` () =
     let h1 = bytes_from_hex "99c3980000000000"
-    Assert.True (little_endian_to_int h1 = 10011545UL)
+    Assert.Equal(little_endian_to_int h1, 10011545UL)
     let h2 = bytes_from_hex "a135ef0100000000"
-    Assert.True (little_endian_to_int h2 = 32454049UL)
+    Assert.Equal(little_endian_to_int h2, 32454049UL)
 
     let n1 = 1UL
     Assert.True (int_to_little_endian(n1, 4) = [| 0x01uy; 0x00uy; 0x00uy; 0x00uy |])
@@ -270,12 +277,12 @@ let ``test transaction id`` () =
     use stream = new MemoryStream(bytes)
     let tx = Tx.Parse stream
     // first satoshi -> hal finney
-    Assert.True <| (tx.Id = "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16")
+    Assert.Equal(tx.Id, "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16")
 
 [<Fact>]
 let ``test transaction fetch`` () =
     let tx = TxHelper.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" false
-    Assert.True <| (tx.Id = "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da")
+    Assert.Equal(tx.Id, "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da")
 
 // [<Fact>]
 // let ``test transaction fee`` () =
@@ -288,9 +295,9 @@ let ``test transaction fetch`` () =
 [<Fact>]
 let ``test big endian`` () =
     let h1 = bytes_from_hex "1000"
-    Assert.True (big_endian_to_int h1 = 4096)
+    Assert.Equal(big_endian_to_int h1, 4096)
     let h2 = bytes_from_hex "99c398"
-    Assert.True (big_endian_to_int h2 = 10077080)
+    Assert.Equal(big_endian_to_int h2, 10077080)
 
     let n1 = 1
     Assert.True (int_to_big_endian(n1, 2) = [| 0x00uy; 0x01uy |])
@@ -339,7 +346,7 @@ let ``test op_checksig`` () =
     let stack = [ secb; sigb ]
     let state, stack = op.op_checksig stack z
     Assert.True state
-    Assert.True (op.decode_num <| List.head stack = 1)
+    Assert.Equal(op.decode_num <| List.head stack, 1)
 
 [<Fact>]
 let ``test op_hash160`` () =
@@ -357,7 +364,7 @@ let ``test op_if`` () =
     let script_if = script.Script.Parse stream
     let eval, stack = script_if.Evaluate 0
     Assert.True eval
-    Assert.True <| (op.decode_num stack.Head = 2)
+    Assert.Equal(op.decode_num stack.Head, 2)
 
     let bytes = bytes_from_hex "516352675368"
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
@@ -365,7 +372,7 @@ let ``test op_if`` () =
     let script_if = script.Script.Parse stream
     let eval, stack = script_if.Evaluate 0
     Assert.True eval
-    Assert.True <| (op.decode_num stack.Head = 2)
+    Assert.Equal(op.decode_num stack.Head, 2)
 
     let bytes = bytes_from_hex "006352675368"
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
@@ -373,7 +380,7 @@ let ``test op_if`` () =
     let script_if = script.Script.Parse stream
     let eval, stack = script_if.Evaluate 0
     Assert.True eval
-    Assert.True <| (op.decode_num stack.Head = 3)
+    Assert.Equal(op.decode_num stack.Head, 3)
 
     let bytes = bytes_from_hex "51635163546868"
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
@@ -381,7 +388,7 @@ let ``test op_if`` () =
     let script_if = script.Script.Parse stream
     let eval, stack = script_if.Evaluate 0
     Assert.True eval
-    Assert.True <| (op.decode_num stack.Head = 4)
+    Assert.Equal(op.decode_num stack.Head, 4)
 
 [<Fact>]
 let ``test op_notif`` () =
@@ -391,7 +398,7 @@ let ``test op_notif`` () =
     let script_if = script.Script.Parse stream
     let eval, stack = script_if.Evaluate 0
     Assert.True eval
-    Assert.True <| (op.decode_num stack.Head = 2)
+    Assert.Equal(op.decode_num stack.Head, 2)
 
     let bytes = bytes_from_hex "516452675368"
     let input = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
@@ -399,7 +406,7 @@ let ``test op_notif`` () =
     let script_if = script.Script.Parse stream
     let eval, stack = script_if.Evaluate 0
     Assert.True eval
-    Assert.True <| (op.decode_num stack.Head = 3)
+    Assert.Equal(op.decode_num stack.Head, 3)
 
 [<Fact>]
 let ``test simple scripts`` () =
@@ -463,7 +470,7 @@ let ``test sighash`` () =
     let tx = Tx.Parse stream
     let sighash = TxHelper.sig_hash tx 0 None
     let result = bigint_from_hex "27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6"
-    Assert.True <| (sighash = result)
+    Assert.Equal(sighash, result)
 
 [<Fact>]
 let ``test verify_input`` () =
@@ -477,7 +484,7 @@ let ``test verify`` () =
     let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
     use stream = new MemoryStream(raw_tx)
     let tx = Tx.Parse stream
-    Assert.True <| (TxHelper.verify tx)
+    Assert.True <| TxHelper.verify tx
 
 [<Fact>]
 let ``test transaction creation`` () =
@@ -494,7 +501,7 @@ let ``test transaction creation`` () =
     let target_script = p2pkh_script target_h160
     let target_output = TxOut.Create(target_amount, target_script)
     let tx = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
-    Assert.True (tx.Id = "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11")
+    Assert.Equal(tx.Id, "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11")
 
 // [<Fact>]
 // let ``test transaction signing`` () =
@@ -515,7 +522,7 @@ let ``test new transaction creation`` () =
     let hash = hash256_string "Jimmy Song secret"
     let secret = little_endian_to_bigint <| hash256_string "Jimmy Song secret"
     let private_key = PrivateKey.Create secret
-    Assert.True ((private_key.Point.Address(true, true) = "mn81594PzKZa9K3Jyy1ushpuEzrnTnxhVg"))
+    Assert.Equal(private_key.Point.Address(true, true), "mn81594PzKZa9K3Jyy1ushpuEzrnTnxhVg")
 
 // [<Fact>]
 // let ``test transaction creation 2`` () =
@@ -544,10 +551,20 @@ let ``test new transaction creation`` () =
 //     Assert.True ((serialized = "01000000011c5fb4a35c40647bcacfeffcb8686f1e9925774c07a1dd26f6551f67bcc4a175010000006b483045022100a08ebb92422b3599a2d2fcdaa11f8f807a66ccf33e7f4a9ff0a3c51f1b1ec5dd02205ed21dfede5925362b8d9833e908646c54be7ac6664e31650159e8f69b6ca539012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff0240420f00000000001976a9141ec51b3654c1f1d0f4929d11a1f702937eaf50c888ac9fbb0d00000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac00000000"))
 
 [<Fact>]
+let ``test p2pkh address`` () =
+    let h160 = bytes_from_hex "74d691da1574e6b3c192ecfb52cc8984ee7b6c56"
+    let want = "1BenRpVUFK65JFWcQSuHnJKzc4M8ZP8Eqa"
+    Assert.Equal(Script.h160_to_p2pkh_address h160, want)
+    let want = "mrAjisaT4LXL5MzE81sfcDYKU3wqWSvf9q"
+    Assert.Equal(Script.h160_to_p2pkh_address(h160, true), want)
+
+[<Fact>]
 let ``test p2sh address`` () =
     let h160 = bytes_from_hex "74d691da1574e6b3c192ecfb52cc8984ee7b6c56"
-    let address = Script.h160_to_p2sh_address h160
-    Assert.True ((address = "3CLoMMyuoDQTPRD3XYZtCvgvkadrAdvdXh"))
+    let want = "3CLoMMyuoDQTPRD3XYZtCvgvkadrAdvdXh"
+    Assert.Equal(Script.h160_to_p2sh_address h160, want)
+    let want = "2N3u1R6uwQfuobCqbCgBkpsgBxvr1tZpe7B"
+    Assert.Equal(Script.h160_to_p2sh_address(h160, true), want)
 
 [<Fact>]
 let ``test signature validation`` () =
@@ -597,19 +614,19 @@ let ``test checking coinbase`` () =
     let txin = TxIn.Create(Array.zeroCreate 32, 0xffffffffu, genesis)
     let tx = Tx.Create(1u, [|txin|], [||], 0u)
     Assert.True tx.IsCoinbase
-    Assert.True (tx.CoinbaseHeight = Some 486604799UL)
+    Assert.Equal(tx.CoinbaseHeight, Some 486604799UL)
 
 [<Fact>]
 let ``test block parsing`` () =
     let bytes = bytes_from_hex "020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d"
     use stream = new MemoryStream(bytes)
     let block = block.Block.Parse stream
-    Assert.True (block.Version = 0x20000002u)
+    Assert.Equal(block.Version, 0x20000002u)
     let want = bytes_from_hex "000000000000000000fd0c220a0a8c3bc5a7b487e8c8de0dfa2373b12894c38e"
     Assert.True (block.PrevBlock = want)
     let want = bytes_from_hex "be258bfd38db61f957315c3f9e9c5e15216857398d50402d5089a8e0fc50075b"
     Assert.True (block.MerkleRoot = want)
-    Assert.True (block.Timestamp = 0x59a7771eu)
+    Assert.Equal(block.Timestamp, 0x59a7771eu)
     Assert.True (block.Bits = bytes_from_hex "e93c0118")
     Assert.True (block.Nonce = bytes_from_hex "a4ffd71d")
 
@@ -637,3 +654,55 @@ let ``test block bip9`` () =
     use stream = new MemoryStream(bytes)
     let bk = block.Block.Parse stream
     Assert.False bk.bip9
+
+[<Fact>]
+let ``test block bip91`` () =
+    let bytes = bytes_from_hex "1200002028856ec5bca29cf76980d368b0a163a0bb81fc192951270100000000000000003288f32a2831833c31a25401c52093eb545d28157e200a64b21b3ae8f21c507401877b5935470118144dbfd1"
+    use stream = new MemoryStream(bytes)
+    let bk = block.Block.Parse stream
+    Assert.True bk.bip91
+    let bytes = bytes_from_hex "020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d"
+    use stream = new MemoryStream(bytes)
+    let bk = block.Block.Parse stream
+    Assert.False bk.bip91
+
+[<Fact>]
+let ``test block bip141`` () =
+    let bytes = bytes_from_hex "020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d"
+    use stream = new MemoryStream(bytes)
+    let bk = block.Block.Parse stream
+    Assert.True bk.bip141
+    let bytes = bytes_from_hex "0000002066f09203c1cf5ef1531f24ed21b1915ae9abeb691f0d2e0100000000000000003de0976428ce56125351bae62c5b8b8c79d8297c702ea05d60feabb4ed188b59c36fa759e93c0118b74b2618"
+    use stream = new MemoryStream(bytes)
+    let bk = block.Block.Parse stream
+    Assert.False bk.bip141
+
+[<Fact>]
+let ``test block target`` () =
+    let bytes = bytes_from_hex "020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d"
+    use stream = new MemoryStream(bytes)
+    let bk = block.Block.Parse stream
+    Assert.Equal(bk.target, bigint_from_hex "13ce9000000000000000000000000000000000000000000")
+    Assert.Equal(bk.difficulty, 888171856257I)
+    Assert.True bk.check_pow
+
+[<Fact>]
+let ``test block bits`` () =
+    let block1_hex = "000000203471101bbda3fe307664b3283a9ef0e97d9a38a7eacd8800000000000000000010c8aba8479bbaa5e0848152fd3c2289ca50e1c3e58c9a4faaafbdf5803c5448ddb845597e8b0118e43a81d3"
+    let block2_hex = "02000020f1472d9db4b563c35f97c428ac903f23b7fc055d1cfc26000000000000000000b3f449fcbe1bc4cfbcb8283a0d2c037f961a3fdf2b8bedc144973735eea707e1264258597e8b0118e5f00474"
+    use stream1 = new MemoryStream(bytes_from_hex block1_hex)
+    use stream2 = new MemoryStream(bytes_from_hex block2_hex)
+    let first_block = Block.Parse stream1
+    let last_block = Block.Parse stream2
+    let time_differential = last_block.Timestamp - first_block.Timestamp
+    let new_target = last_block.target * bigint time_differential / bigint TWO_WEEKS
+    let new_bits = target_to_bits new_target
+    Assert.True((new_bits = calculate_new_bits last_block.Bits time_differential))
+
+[<Fact>]
+let ``test calculating new bits`` () =
+    let prev_bits: byte[] = bytes_from_hex "54d80118"
+    let time_differential: uint32 = 302400u
+    let want: byte[] = bytes_from_hex "00157617"
+    let new_bits = calculate_new_bits prev_bits time_differential
+    Assert.True(calculate_new_bits prev_bits time_differential = want)
