@@ -9,6 +9,7 @@ open helper
 open script
 open tx
 open block
+open network
 
 [<Fact>]
 let ``test curve valid points`` () =
@@ -706,3 +707,35 @@ let ``test calculating new bits`` () =
     let want: byte[] = bytes_from_hex "00157617"
     let new_bits = calculate_new_bits prev_bits time_differential
     Assert.True(calculate_new_bits prev_bits time_differential = want)
+
+[<Fact>]
+let ``test network envelope parsing`` () =
+    let msg = bytes_from_hex "f9beb4d976657261636b000000000000000000005df6e0e2"
+    use stream = new MemoryStream(msg)
+    let envelope = NetworkEnvelope.Parse stream
+    Assert.Equal(envelope.Command, "verack")
+    Assert.True(envelope.Payload = [||])
+    let msg = bytes_from_hex "f9beb4d976657273696f6e0000000000650000005f1a69d2721101000100000000000000bc8f5e5400000000010000000000000000000000000000000000ffffc61b6409208d010000000000000000000000000000000000ffffcb0071c0208d128035cbc97953f80f2f5361746f7368693a302e392e332fcf05050001"
+    use stream = new MemoryStream(msg)
+    let envelope = NetworkEnvelope.Parse stream
+    Assert.Equal(envelope.Command, "version")
+    Assert.True (envelope.Payload = msg[24..])
+
+[<Fact>]
+let ``test network envelope serialization`` () =
+    let msg = bytes_from_hex "f9beb4d976657261636b000000000000000000005df6e0e2"
+    use stream = new MemoryStream(msg)
+    let envelope = NetworkEnvelope.Parse stream
+    Assert.True (envelope.Serialize = msg)
+    let msg = bytes_from_hex "f9beb4d976657273696f6e0000000000650000005f1a69d2721101000100000000000000bc8f5e5400000000010000000000000000000000000000000000ffffc61b6409208d010000000000000000000000000000000000ffffcb0071c0208d128035cbc97953f80f2f5361746f7368693a302e392e332fcf05050001"
+    use stream = new MemoryStream(msg)
+    let envelope = NetworkEnvelope.Parse stream
+    Assert.True (envelope.Serialize = msg)
+
+[<Fact>]
+let ``test version message serialization`` () =
+    let nonce = Array.zeroCreate 8
+    let user_agent = "/programmingbitcoin:0.1/"
+    let v = VersionMessage.Create(Some 0UL, Some nonce, user_agent)
+    Assert.Equal("7f11010000000000000000000000000000000000000000000000000000000000000000000000ffff00000000208d000000000000000000000000000000000000ffff00000000208d0000000000000000182f70726f6772616d6d696e67626974636f696e3a302e312f0000000000",
+        bytes_to_hex v.Serialize)
