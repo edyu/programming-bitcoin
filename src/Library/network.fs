@@ -125,3 +125,15 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
                         receiver_services; receiver_address; receiver_port;
                         sender_services; sender_address; sender_port;
                         nonce; user_agent; latest_block; relay ]
+
+type VerAckMessage = private { body: byte[] } with
+    member this.Command = Encoding.ASCII.GetBytes "verack"
+    member this.Body = this.body
+
+    static member Create =
+        { body = [||] }
+
+    static member Parse = 
+        VerAckMessage.Create
+
+    member this.Serialize = this.body
