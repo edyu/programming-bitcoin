@@ -57,6 +57,8 @@ type NetworkEnvelope = { command: byte[]; payload: byte[]; testnet: bool } with
         let hash = (helper.hash256 this.payload)[0..3]
         Array.concat [ this.Magic; command; helper.int_to_little_endian(uint64 this.payload.Length, 4); hash; this.payload ]
 
+type Message = VersionMessage | VerackMessage
+
 type VersionMessage = private { version: uint32; services: uint64; timestamp: uint64;
                                 receiver_services: uint64; receiver_address: Address; receiver_port: uint16;
                                 sender_services: uint64; sender_address: Address; sender_port: uint16;
@@ -133,7 +135,79 @@ type VerAckMessage = private { body: byte[] } with
     static member Create =
         { body = [||] }
 
-    static member Parse = 
+    static member Parse stream = 
         VerAckMessage.Create
 
     member this.Serialize = this.body
+
+type PingMessage = private { nonce: byte[] } with
+    member this.Command = Encoding.ASCII.GetBytes "ping"
+
+    static member Create (nonce: byte[]) =
+        { nonce = nonce }
+
+    static member Parse (stream: Stream) = 
+        let nonce = Array.zeroCreate<byte> 8
+        stream.ReadExactly nonce
+        PingMessage.Create nonce
+
+    member this.Serialize = this.nonce
+
+type PongMessage = private { nonce: byte[] } with
+    member this.Command = Encoding.ASCII.GetBytes "pong"
+
+    static member Create (nonce: byte[]) =
+        { nonce = nonce }
+
+    static member Parse (stream: Stream) = 
+        let nonce = Array.zeroCreate<byte> 8
+        stream.ReadExactly nonce
+        PongMessage.Create nonce
+
+    member this.Serialize = this.nonce
+
+type GetHeadersMessage = private { version: uint32; num_hashes: int; start_block: byte[]; end_block: byte[] } with
+    member this.Command = Encoding.ASCII.GetBytes "getheaders"
+
+    static member Create (start_block: byte[], ?version0: uint32, ?num_hashes0: int, ?end_block0: byte[]) =
+        let version = defaultArg version0 70015u
+        let num_hashes = defaultArg num_hashes0 1
+        let end_block = defaultArg end_block0 (Array.zeroCreate<byte> 32)
+        { version = version; num_hashes = num_hashes; start_block = start_block; end_block = end_block }
+
+    member this.Serialize =
+        let version = helper.int_to_little_endian(uint64 this.version, 4)
+        let num_hashes = helper.encode_varint <| uint64 this.num_hashes
+        let start_block = Array.rev this.start_block
+        let end_block = Array.rev this.end_block
+        Array.concat [ version; num_hashes; start_block; end_block ]
+
+type HeadersMessage = private { blocks: block.Block[] } with
+    member this.Command = Encoding.ASCII.GetBytes "headers"
+    member this.Blocks = this.blocks
+
+    static member Create (blocks: block.Block[]) =
+        { blocks = blocks }
+
+    static member Parse (stream: Stream) = 
+        let num_headers = int <| helper.read_varint(stream)
+        let mutable blocks = []
+        for _ in [1..num_headers] do
+            let b = block.Block.Parse stream
+            let num_txs = helper.read_varint(stream)
+            if num_txs <> 0UL then
+                failwith "number of transactions is not 0"
+            blocks <- b :: blocks
+        HeadersMessage.Create <| Array.ofList (List.rev blocks)
+
+// type SimpleNode = private { host: IPAddress; port: int; testnet: bool; logging: bool; stream: Stream } with
+//     static member Create(host: IPAddress, ?port0: int, ?testnet0: bool, ?logging0: bool) = 
+//         let testnet = defaultArg testnet0 false
+//         let logging = defaultArg logging0 false
+//         let port = if testnet then defaultArg port0 18333 else defaultArg port0 8333
+//         use client = new Sockets.TcpClient(host.ToString(), port)
+//         use stream = client.GetStream()
+//         { host = host; port = port; testnet = testnet; logging = logging; stream = stream }
+
+//     member this.Send (message: Message) =
+//         let envelope = NetworkEnvelope.Create(message.Command, message.Serialize, this.testnet)
