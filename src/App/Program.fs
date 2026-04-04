@@ -5,6 +5,7 @@ open ecc
 open helper
 open tx
 open block
+open network
 
 [<EntryPoint>]
 let main args =
@@ -223,5 +224,9 @@ let main args =
     let new_bits = calculate_new_bits (target_to_bits last_block.target) time_differential
     let new_target = bits_to_target new_bits
     printfn "%A" (bigint_to_hex new_target)
+
+    let node = SimpleNode.Create("testnet.programmingbitcoin.com", 18333, true, true)
+    let command = node.Handshake
+    printfn "%A" command
 
     0 // return an integer exit code

@@ -125,6 +125,7 @@ module TxHelper =
     let cache = new Dictionary<string, Tx>()
 
     let url = "https://blockchain.info"
+    // "https://blockstream.info/testnet/api/"
 
     let fetch tx_id fresh : Tx =
         if fresh || not (cache.ContainsKey tx_id) then

@@ -8,9 +8,9 @@ open System.Net
 let NETWORK_MAGIC = [| 0xf9uy; 0xbeuy; 0xb4uy; 0xd9uy |]
 let TESTNET_NETWORK_MAGIC = [| 0x0buy; 0x11uy; 0x09uy; 0x07uy |]
 
-type Address = IP of IPAddress | Raw of byte[]
+type Address = IP of IPAddress | Raw of byte array
 
-type NetworkEnvelope = { command: byte[]; payload: byte[]; testnet: bool } with
+type NetworkEnvelope = { command: byte array; payload: byte array; testnet: bool } with
     member this.Command = Encoding.ASCII.GetString this.command
     member this.Payload = this.payload
     member this.Magic =
@@ -57,13 +57,11 @@ type NetworkEnvelope = { command: byte[]; payload: byte[]; testnet: bool } with
         let hash = (helper.hash256 this.payload)[0..3]
         Array.concat [ this.Magic; command; helper.int_to_little_endian(uint64 this.payload.Length, 4); hash; this.payload ]
 
-type Message = VersionMessage | VerackMessage
-
 type VersionMessage = private { version: uint32; services: uint64; timestamp: uint64;
                                 receiver_services: uint64; receiver_address: Address; receiver_port: uint16;
                                 sender_services: uint64; sender_address: Address; sender_port: uint16;
-                                nonce: byte[]; user_agent: string; latest_block: uint32; relay: bool } with
-    member this.Command = Encoding.ASCII.GetBytes "version"
+                                nonce: byte array; user_agent: string; latest_block: uint32; relay: bool } with
+    static member Command = Encoding.ASCII.GetBytes "version"
     member this.Version = this.version
     member this.Services = this.services
     member this.Timestamp = this.timestamp
@@ -77,7 +75,7 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
     member this.UserAgent = this.user_agent
     member this.LatestBlock = this.latest_block
     member this.Relay = this.relay
-    static member Create(?timestamp0: uint64 option, ?nonce0: byte[] option, ?user_agent0: string,
+    static member Create(?timestamp0: uint64 option, ?nonce0: byte array option, ?user_agent0: string,
                             ?version0: uint32, ?services0: uint64,
                             ?receiver_services0: uint64, ?receiver_address0: Address, ?receiver_port0: uint16,
                             ?sender_services0: uint64, ?sender_address0: Address, ?sender_port0: uint16,
@@ -128,8 +126,8 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
                         sender_services; sender_address; sender_port;
                         nonce; user_agent; latest_block; relay ]
 
-type VerAckMessage = private { body: byte[] } with
-    member this.Command = Encoding.ASCII.GetBytes "verack"
+type VerAckMessage = private { body: byte array } with
+    static member Command = Encoding.ASCII.GetBytes "verack"
     member this.Body = this.body
 
     static member Create =
@@ -140,10 +138,10 @@ type VerAckMessage = private { body: byte[] } with
 
     member this.Serialize = this.body
 
-type PingMessage = private { nonce: byte[] } with
-    member this.Command = Encoding.ASCII.GetBytes "ping"
+type PingMessage = private { nonce: byte array } with
+    static member Command = Encoding.ASCII.GetBytes "ping"
 
-    static member Create (nonce: byte[]) =
+    static member Create (nonce: byte array) =
         { nonce = nonce }
 
     static member Parse (stream: Stream) = 
@@ -153,10 +151,10 @@ type PingMessage = private { nonce: byte[] } with
 
     member this.Serialize = this.nonce
 
-type PongMessage = private { nonce: byte[] } with
-    member this.Command = Encoding.ASCII.GetBytes "pong"
+type PongMessage = private { nonce: byte array } with
+    static member Command = Encoding.ASCII.GetBytes "pong"
 
-    static member Create (nonce: byte[]) =
+    static member Create (nonce: byte array) =
         { nonce = nonce }
 
     static member Parse (stream: Stream) = 
@@ -166,10 +164,10 @@ type PongMessage = private { nonce: byte[] } with
 
     member this.Serialize = this.nonce
 
-type GetHeadersMessage = private { version: uint32; num_hashes: int; start_block: byte[]; end_block: byte[] } with
-    member this.Command = Encoding.ASCII.GetBytes "getheaders"
+type GetHeadersMessage = private { version: uint32; num_hashes: int; start_block: byte array; end_block: byte array } with
+    static member Command = Encoding.ASCII.GetBytes "getheaders"
 
-    static member Create (start_block: byte[], ?version0: uint32, ?num_hashes0: int, ?end_block0: byte[]) =
+    static member Create (start_block: byte array, ?version0: uint32, ?num_hashes0: int, ?end_block0: byte array) =
         let version = defaultArg version0 70015u
         let num_hashes = defaultArg num_hashes0 1
         let end_block = defaultArg end_block0 (Array.zeroCreate<byte> 32)
@@ -183,7 +181,7 @@ type GetHeadersMessage = private { version: uint32; num_hashes: int; start_block
         Array.concat [ version; num_hashes; start_block; end_block ]
 
 type HeadersMessage = private { blocks: block.Block[] } with
-    member this.Command = Encoding.ASCII.GetBytes "headers"
+    static member Command = Encoding.ASCII.GetBytes "headers"
     member this.Blocks = this.blocks
 
     static member Create (blocks: block.Block[]) =
@@ -200,14 +198,58 @@ type HeadersMessage = private { blocks: block.Block[] } with
             blocks <- b :: blocks
         HeadersMessage.Create <| Array.ofList (List.rev blocks)
 
-// type SimpleNode = private { host: IPAddress; port: int; testnet: bool; logging: bool; stream: Stream } with
-//     static member Create(host: IPAddress, ?port0: int, ?testnet0: bool, ?logging0: bool) = 
-//         let testnet = defaultArg testnet0 false
-//         let logging = defaultArg logging0 false
-//         let port = if testnet then defaultArg port0 18333 else defaultArg port0 8333
-//         use client = new Sockets.TcpClient(host.ToString(), port)
-//         use stream = client.GetStream()
-//         { host = host; port = port; testnet = testnet; logging = logging; stream = stream }
+// type Message = VersionMessage | VerAckMessage
+type Message = Version of VersionMessage | VerAck of VerAckMessage | Ping of PingMessage | Pong of PongMessage | GetHeaders of GetHeadersMessage | Headers of HeadersMessage
 
-//     member this.Send (message: Message) =
-//         let envelope = NetworkEnvelope.Create(message.Command, message.Serialize, this.testnet)
+type SimpleNode = private { host: string; port: int; testnet: bool; logging: bool; stream: Stream } with
+    static member Create(host: string, ?port0: int, ?testnet0: bool, ?logging0: bool) = 
+        let testnet = defaultArg testnet0 false
+        let logging = defaultArg logging0 false
+        let port = if testnet then defaultArg port0 18333 else defaultArg port0 8333
+        let client = new Sockets.TcpClient(host, port)
+        let stream = client.GetStream()
+        { host = host; port = port; testnet = testnet; logging = logging; stream = stream }
+
+    member this.Send (message: Message) =
+        let envelope = match message with
+                        | VerAck m ->  NetworkEnvelope.Create(VerAckMessage.Command, m.Serialize, this.testnet)
+                        | Version m -> NetworkEnvelope.Create(VersionMessage.Command, m.Serialize, this.testnet)
+                        | Ping m -> NetworkEnvelope.Create(PingMessage.Command, m.Serialize, this.testnet)
+                        | Pong m -> NetworkEnvelope.Create(PongMessage.Command, m.Serialize, this.testnet)
+                        | GetHeaders m -> NetworkEnvelope.Create(GetHeadersMessage.Command, m.Serialize, this.testnet)
+                        | Headers m -> NetworkEnvelope.Create(GetHeadersMessage.Command, [||], this.testnet)
+        if this.logging then
+            printfn $"sending {envelope}"
+        this.stream.Write envelope.Serialize
+
+    member this.Read: NetworkEnvelope =
+        let envelope = NetworkEnvelope.Parse(this.stream, this.testnet)
+        if this.logging then
+            printfn $"receiving {envelope}"
+        envelope
+
+    member this.WaitFor (message: byte array) =
+        let mutable found = false
+        let mutable command = VerAckMessage.Command
+        let mutable envelope = NetworkEnvelope.Create(command, [||])
+        while not found do
+            envelope <- this.Read
+            command <- envelope.command
+            if command = VersionMessage.Command then
+                this.Send <| VerAck VerAckMessage.Create
+            else if command = PingMessage.Command then
+                this.Send <| Pong (PongMessage.Create envelope.Payload)
+            if envelope.command = message then
+                found <- true
+        use stream = new MemoryStream(envelope.Payload)
+        if command = PingMessage.Command then
+            Ping (PingMessage.Parse stream)
+        else if command = PongMessage.Command then
+            Pong (PongMessage.Parse stream)
+        else
+            Headers (HeadersMessage.Parse stream)
+
+    member this.Handshake =
+        let version = VersionMessage.Create ()
+        this.Send (Version version)
+        this.WaitFor VerAckMessage.Command
