@@ -75,6 +75,7 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
     member this.UserAgent = this.user_agent
     member this.LatestBlock = this.latest_block
     member this.Relay = this.relay
+
     static member Create(?timestamp0: uint64 option, ?nonce0: byte array option, ?user_agent0: string,
                             ?version0: uint32, ?services0: uint64,
                             ?receiver_services0: uint64, ?receiver_address0: Address, ?receiver_port0: uint16,
@@ -96,10 +97,49 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
         let nonce = match nonce0 with
                         | None -> helper.int_to_little_endian(uint64(Random().NextInt64()), 8)
                         | Some n -> n
-        let user_agent = defaultArg user_agent0 ""
+        let user_agent = defaultArg user_agent0 "/programmingbitcoin:0.1/"
         let latest_block = defaultArg latest_block0 0u
         let relay = defaultArg relay0 false
         { version = version; services = services; timestamp = timestamp; receiver_services = receiver_services; receiver_address = receiver_address; receiver_port = receiver_port; sender_services = sender_services; sender_address = sender_address; sender_port = sender_port; nonce = nonce; user_agent = user_agent; latest_block = latest_block; relay = relay }
+
+    static member Parse (stream: Stream) =
+        let buffer4 = Array.zeroCreate<byte> 4
+        stream.ReadExactly buffer4
+        let version = uint32 <| helper.little_endian_to_int buffer4
+        let buffer8 = Array.zeroCreate<byte> 8
+        let services = helper.little_endian_to_int buffer8
+        let timestamp = helper.little_endian_to_int buffer8
+        let receiver_services = helper.little_endian_to_int buffer8
+        let buffer16 = Array.zeroCreate<byte> 16
+        let prefix = Array.zeroCreate<byte> 10
+        let marker = [|0xffuy; 0xffuy|]
+        stream.ReadExactly buffer16
+        let receiver_address = if buffer16[0..9] = prefix && buffer16[10..11] = marker then
+                                   IP <| IPAddress(buffer16[12..15])
+                               else
+                                   Raw <| Array.copy buffer16
+        let buffer2 = Array.zeroCreate<byte> 2
+        stream.ReadExactly buffer2
+        let receiver_port = uint16 <| helper.big_endian_to_int buffer2
+        let sender_services = helper.little_endian_to_int buffer8
+        let sender_address = if buffer16[0..9] = prefix && buffer16[10..11] = marker then
+                                 IP <| IPAddress(buffer16[12..15])
+                             else
+                                 Raw <| Array.copy buffer16
+        let sender_port = uint16 <| helper.big_endian_to_int buffer2
+        stream.ReadExactly buffer8
+        let nonce = buffer8
+        let ua_length = helper.read_varint stream
+        let ua_bytes = Array.zeroCreate<byte> <| int ua_length
+        stream.ReadExactly ua_bytes
+        let user_agent = Encoding.UTF8.GetString ua_bytes
+        stream.ReadExactly buffer4
+        let latest_block = uint32 <| helper.little_endian_to_int buffer4
+        let relay = if stream.ReadByte() = 0x01 then true else false
+        VersionMessage.Create (Some timestamp, Some nonce, user_agent, version, services,
+            receiver_services, receiver_address, receiver_port,
+            sender_services, sender_address, sender_port,
+            latest_block, relay)
 
     member this.Serialize =
         let version = helper.int_to_little_endian(uint64 this.version, 4)
@@ -117,7 +157,7 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
                                 | Raw bytes -> bytes
         let sender_port = helper.int_to_big_endian(int this.sender_port, 2)
         let nonce = this.nonce
-        let ua_bytes = Encoding.ASCII.GetBytes this.user_agent
+        let ua_bytes = Encoding.UTF8.GetBytes this.user_agent
         let user_agent = Array.concat [ helper.encode_varint <| uint64 ua_bytes.Length; ua_bytes ]
         let latest_block = helper.int_to_little_endian(uint64 this.latest_block, 4)
         let relay = if this.relay then [| 0x01uy |] else [| 0x00uy |]
@@ -228,7 +268,7 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
             printfn $"receiving {envelope}"
         envelope
 
-    member this.WaitFor (message: byte array) =
+    member this.WaitFor (messages: byte array list) =
         let mutable found = false
         let mutable command = VerAckMessage.Command
         let mutable envelope = NetworkEnvelope.Create(command, [||])
@@ -239,17 +279,21 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
                 this.Send <| VerAck VerAckMessage.Create
             else if command = PingMessage.Command then
                 this.Send <| Pong (PongMessage.Create envelope.Payload)
-            if envelope.command = message then
+            if List.exists (fun x -> x = envelope.command) messages then
                 found <- true
         use stream = new MemoryStream(envelope.Payload)
         if command = PingMessage.Command then
             Ping (PingMessage.Parse stream)
         else if command = PongMessage.Command then
             Pong (PongMessage.Parse stream)
+        else if command = VersionMessage.Command then
+            Version (VersionMessage.Parse stream)
+        else if command = VerAckMessage.Command then
+            VerAck (VerAckMessage.Parse stream)
         else
             Headers (HeadersMessage.Parse stream)
 
     member this.Handshake =
         let version = VersionMessage.Create ()
         this.Send (Version version)
-        this.WaitFor VerAckMessage.Command
+        this.WaitFor [VerAckMessage.Command]

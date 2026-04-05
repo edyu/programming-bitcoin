@@ -226,7 +226,17 @@ let main args =
     printfn "%A" (bigint_to_hex new_target)
 
     let node = SimpleNode.Create("testnet.programmingbitcoin.com", 18333, true, true)
-    let command = node.Handshake
-    printfn "%A" command
+    // let command = node.Handshake
+    // printfn "%A" command
+    let version = VersionMessage.Create()
+    node.Send (Version version)
+    let mutable verack_received = false
+    let mutable version_received = false
+    while not verack_received && not version_received do
+        let message = node.WaitFor [VersionMessage.Command; VerAckMessage.Command]
+        match message with
+        | VerAck _ -> verack_received <- true
+        | Version _ -> version_received <- true
+        | _ -> printfn "got %A" message
 
     0 // return an integer exit code
