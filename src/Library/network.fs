@@ -228,11 +228,11 @@ type HeadersMessage = private { blocks: block.Block[] } with
         { blocks = blocks }
 
     static member Parse (stream: Stream) = 
-        let num_headers = int <| helper.read_varint(stream)
+        let num_headers = int <| helper.read_varint stream
         let mutable blocks = []
         for _ in [1..num_headers] do
             let b = block.Block.Parse stream
-            let num_txs = helper.read_varint(stream)
+            let num_txs = helper.read_varint stream
             if num_txs <> 0UL then
                 failwith "number of transactions is not 0"
             blocks <- b :: blocks
@@ -242,7 +242,7 @@ type HeadersMessage = private { blocks: block.Block[] } with
 type Message = Version of VersionMessage | VerAck of VerAckMessage | Ping of PingMessage | Pong of PongMessage | GetHeaders of GetHeadersMessage | Headers of HeadersMessage
 
 type SimpleNode = private { host: string; port: int; testnet: bool; logging: bool; stream: Stream } with
-    static member Create(host: string, ?port0: int, ?testnet0: bool, ?logging0: bool) = 
+    static member Create(host: string, ?testnet0: bool, ?port0: int, ?logging0: bool) = 
         let testnet = defaultArg testnet0 false
         let logging = defaultArg logging0 false
         let port = if testnet then defaultArg port0 18333 else defaultArg port0 8333
@@ -271,7 +271,7 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
     member this.WaitFor (messages: byte array list) =
         let mutable found = false
         let mutable command = VerAckMessage.Command
-        let mutable envelope = NetworkEnvelope.Create(command, [||])
+        let mutable envelope = NetworkEnvelope.Create(command, [||], this.testnet)
         while not found do
             envelope <- this.Read
             command <- envelope.command

@@ -225,18 +225,35 @@ let main args =
     let new_target = bits_to_target new_bits
     printfn "%A" (bigint_to_hex new_target)
 
-    let node = SimpleNode.Create("testnet.programmingbitcoin.com", 18333, true, true)
-    // let command = node.Handshake
-    // printfn "%A" command
-    let version = VersionMessage.Create()
-    node.Send (Version version)
-    let mutable verack_received = false
-    let mutable version_received = false
-    while not verack_received && not version_received do
-        let message = node.WaitFor [VersionMessage.Command; VerAckMessage.Command]
+    // let node = SimpleNode.Create("testnet.programmingbitcoin.com", true, 18333, true)
+    let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false, 8333, false)
+    let command = node.Handshake
+    printfn "%A" command
+    use stream = new MemoryStream(GENESIS_BLOCK)
+    // use stream = new MemoryStream(TESTNET_GENESIS_BLOCK)
+    let genesis = Block.Parse stream
+    let mutable previous = genesis
+    let mutable first_epoch_timestamp = previous.Timestamp
+    let mutable expected_bits = LOWEST_BITS
+    let mutable count = 1
+    for i in [0..5] do
+        let getheaders = GetHeadersMessage.Create previous.hash
+        node.Send <| GetHeaders getheaders
+        let message = node.WaitFor [HeadersMessage.Command]
         match message with
-        | VerAck _ -> verack_received <- true
-        | Version _ -> version_received <- true
+        | Headers headers -> for header in headers.Blocks do
+                                if not header.check_pow then
+                                    failwith $"bad PoW at block {count}"
+                                if header.PrevBlock <> previous.hash then
+                                    failwith $"discontinuous block at {count}"
+                                if count % 2016 = 0 then
+                                    let time_diff = previous.Timestamp - first_epoch_timestamp
+                                    expected_bits  <- calculate_new_bits previous.Bits time_diff
+                                    printfn "%s" (bytes_to_hex expected_bits)
+                                    first_epoch_timestamp <- header.Timestamp
+                                // printfn "header: %A" header
+                                previous <- header
+                                count <- count + 1
         | _ -> printfn "got %A" message
 
     0 // return an integer exit code

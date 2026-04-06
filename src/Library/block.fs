@@ -5,6 +5,10 @@ open System.IO
 [<Literal>]
 let TWO_WEEKS = 60u * 60u * 24u * 14u
 
+let GENESIS_BLOCK = helper.bytes_from_hex "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c"
+let TESTNET_GENESIS_BLOCK = helper.bytes_from_hex "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae18"
+let LOWEST_BITS = helper.bytes_from_hex "ffff001d"
+
 let bits_to_target (bits: byte[]) =
     let exponent = int bits[3]
     let coefficient = helper.little_endian_to_bigint bits[0..2]
