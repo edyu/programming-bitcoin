@@ -227,8 +227,7 @@ let main args =
 
     // let node = SimpleNode.Create("testnet.programmingbitcoin.com", true, 18333, true)
     let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false, 8333, false)
-    let command = node.Handshake
-    printfn "%A" command
+    let _ = node.Handshake
     use stream = new MemoryStream(GENESIS_BLOCK)
     // use stream = new MemoryStream(TESTNET_GENESIS_BLOCK)
     let genesis = Block.Parse stream
@@ -236,7 +235,7 @@ let main args =
     let mutable first_epoch_timestamp = previous.Timestamp
     let mutable expected_bits = LOWEST_BITS
     let mutable count = 1
-    for i in [0..5] do
+    for i in [0..19] do
         let getheaders = GetHeadersMessage.Create previous.hash
         node.Send <| GetHeaders getheaders
         let message = node.WaitFor [HeadersMessage.Command]
@@ -248,8 +247,13 @@ let main args =
                                     failwith $"discontinuous block at {count}"
                                 if count % 2016 = 0 then
                                     let time_diff = previous.Timestamp - first_epoch_timestamp
+                                    if previous.Timestamp < first_epoch_timestamp then
+                                        printfn "time diff is negative"
                                     expected_bits  <- calculate_new_bits previous.Bits time_diff
-                                    printfn "%s" (bytes_to_hex expected_bits)
+                                    if previous.Bits <> expected_bits then
+                                        printfn "%s -> %s" (bytes_to_hex previous.Bits) (bytes_to_hex expected_bits)
+                                    else
+                                        printfn "%s" <| bytes_to_hex expected_bits
                                     first_epoch_timestamp <- header.Timestamp
                                 // printfn "header: %A" header
                                 previous <- header

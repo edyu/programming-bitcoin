@@ -5,14 +5,18 @@ open System.IO
 [<Literal>]
 let TWO_WEEKS = 60u * 60u * 24u * 14u
 
+let MAX_TARGET = bigint 0xffff * bigint.Pow(256, 0x1d - 3)
+
 let GENESIS_BLOCK = helper.bytes_from_hex "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c"
 let TESTNET_GENESIS_BLOCK = helper.bytes_from_hex "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae18"
 let LOWEST_BITS = helper.bytes_from_hex "ffff001d"
 
-let bits_to_target (bits: byte[]) =
-    let exponent = int bits[3]
-    let coefficient = helper.little_endian_to_bigint bits[0..2]
-    coefficient * pown 256I (exponent - 3)
+let bits_to_target (bits: byte array) =
+    if bits.Length <> 4 then
+        failwith "bits byte array is too big"
+    let exponent = int bits[bits.Length - 1]
+    let coefficient = helper.little_endian_to_bigint bits[0..(bits.Length - 2)]
+    coefficient * bigint.Pow(256I, exponent - 3)
 
 let target_to_bits (target: bigint) =
     let mutable raw_bytes = helper.bigint_to_bytes target
@@ -29,7 +33,9 @@ let calculate_new_bits (previous_bits: byte[]) (time_differential: uint32) : byt
         time_differential <- TWO_WEEKS * 4u
     if time_differential < TWO_WEEKS / 4u then
         time_differential <- TWO_WEEKS / 4u
-    let new_target = bits_to_target previous_bits * bigint time_differential / bigint TWO_WEEKS
+    let mutable new_target = bits_to_target previous_bits * bigint time_differential / bigint TWO_WEEKS
+    if new_target > MAX_TARGET then
+        new_target <- MAX_TARGET
     target_to_bits new_target
 
 type Block = private { version: uint32; prev_block: byte[]; merkle_root: byte[]; timestamp: uint32; bits: byte[]; nonce: byte[] } with
