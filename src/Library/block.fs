@@ -38,13 +38,14 @@ let calculate_new_bits (previous_bits: byte[]) (time_differential: uint32) : byt
         new_target <- MAX_TARGET
     target_to_bits new_target
 
-type Block = private { version: uint32; prev_block: byte[]; merkle_root: byte[]; timestamp: uint32; bits: byte[]; nonce: byte[] } with
+type Block = private { version: uint32; prev_block: byte[]; merkle_root: byte[]; timestamp: uint32; bits: byte[]; nonce: byte[]; tx_hashes: byte array list } with
     member this.Version = this.version
     member this.PrevBlock = this.prev_block
     member this.MerkleRoot = this.merkle_root
     member this.Timestamp = this.timestamp
     member this.Bits = this.bits
     member this.Nonce = this.nonce
+    member this.TxHashes = this.tx_hashes
 
     member this.bip9 =
         this.version >>> 29 = 1u
@@ -66,8 +67,9 @@ type Block = private { version: uint32; prev_block: byte[]; merkle_root: byte[];
         let timestamp = helper.int_to_little_endian(uint64 this.Timestamp, 4)
         Array.concat [ version; prev_block; merkle_root; timestamp; this.Bits; this.Nonce ]
 
-    static member Create(version, prev_block, merkle_root, timestamp, bits, nonce) =
-        { version = version; prev_block = prev_block; merkle_root = merkle_root; timestamp = timestamp; bits = bits; nonce = nonce }
+    static member Create(version, prev_block, merkle_root, timestamp, bits, nonce, ?tx_hashes0) =
+        let tx_hashes = defaultArg tx_hashes0 []
+        { version = version; prev_block = prev_block; merkle_root = merkle_root; timestamp = timestamp; bits = bits; nonce = nonce; tx_hashes = tx_hashes }
 
     static member Parse (stream: Stream) =
         let buffer4 = Array.zeroCreate<byte> 4
@@ -96,3 +98,8 @@ type Block = private { version: uint32; prev_block: byte[]; merkle_root: byte[];
         let hash = helper.hash256 this.Serialize
         let proof = helper.little_endian_to_bigint hash
         proof < this.target
+
+    member this.validate_merkle_root =
+        let hashes = [ for h in this.tx_hashes -> Array.rev h ]
+        let root = helper.merkle_root hashes
+        Array.rev root = this.merkle_root
