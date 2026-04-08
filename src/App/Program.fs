@@ -6,6 +6,7 @@ open helper
 open tx
 open block
 open network
+open merkleblock
 
 [<EntryPoint>]
 let main args =
@@ -225,39 +226,65 @@ let main args =
     let new_target = bits_to_target new_bits
     printfn "%A" (bigint_to_hex new_target)
 
-    // let node = SimpleNode.Create("testnet.programmingbitcoin.com", true, 18333, true)
-    let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false, 8333, false)
-    let _ = node.Handshake
-    use stream = new MemoryStream(GENESIS_BLOCK)
-    // use stream = new MemoryStream(TESTNET_GENESIS_BLOCK)
-    let genesis = Block.Parse stream
-    let mutable previous = genesis
-    let mutable first_epoch_timestamp = previous.Timestamp
-    let mutable expected_bits = LOWEST_BITS
-    let mutable count = 1
-    for i in [0..19] do
-        let getheaders = GetHeadersMessage.Create previous.hash
-        node.Send <| GetHeaders getheaders
-        let message = node.WaitFor [HeadersMessage.Command]
-        match message with
-        | Headers headers -> for header in headers.Blocks do
-                                if not header.check_pow then
-                                    failwith $"bad PoW at block {count}"
-                                if header.PrevBlock <> previous.hash then
-                                    failwith $"discontinuous block at {count}"
-                                if count % 2016 = 0 then
-                                    let time_diff = previous.Timestamp - first_epoch_timestamp
-                                    if previous.Timestamp < first_epoch_timestamp then
-                                        printfn "time diff is negative"
-                                    expected_bits  <- calculate_new_bits previous.Bits time_diff
-                                    if previous.Bits <> expected_bits then
-                                        printfn "%s -> %s" (bytes_to_hex previous.Bits) (bytes_to_hex expected_bits)
-                                    else
-                                        printfn "%s" <| bytes_to_hex expected_bits
-                                    first_epoch_timestamp <- header.Timestamp
-                                // printfn "header: %A" header
-                                previous <- header
-                                count <- count + 1
-        | _ -> printfn "got %A" message
+    // // let node = SimpleNode.Create("testnet.programmingbitcoin.com", true, 18333, true)
+    // let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false, 8333, false)
+    // let _ = node.Handshake
+    // use stream = new MemoryStream(GENESIS_BLOCK)
+    // // use stream = new MemoryStream(TESTNET_GENESIS_BLOCK)
+    // let genesis = Block.Parse stream
+    // let mutable previous = genesis
+    // let mutable first_epoch_timestamp = previous.Timestamp
+    // let mutable expected_bits = LOWEST_BITS
+    // let mutable count = 1
+    // for i in [0..19] do
+    //     let getheaders = GetHeadersMessage.Create previous.hash
+    //     node.Send <| GetHeaders getheaders
+    //     let message = node.WaitFor [HeadersMessage.Command]
+    //     match message with
+    //     | Headers headers -> for header in headers.Blocks do
+    //                             if not header.check_pow then
+    //                                 failwith $"bad PoW at block {count}"
+    //                             if header.PrevBlock <> previous.hash then
+    //                                 failwith $"discontinuous block at {count}"
+    //                             if count % 2016 = 0 then
+    //                                 let time_diff = previous.Timestamp - first_epoch_timestamp
+    //                                 if previous.Timestamp < first_epoch_timestamp then
+    //                                     printfn "time diff is negative"
+    //                                 expected_bits  <- calculate_new_bits previous.Bits time_diff
+    //                                 if previous.Bits <> expected_bits then
+    //                                     printfn "%s -> %s" (bytes_to_hex previous.Bits) (bytes_to_hex expected_bits)
+    //                                 else
+    //                                     printfn "%s" <| bytes_to_hex expected_bits
+    //                                 first_epoch_timestamp <- header.Timestamp
+    //                             // printfn "header: %A" header
+    //                             previous <- header
+    //                             count <- count + 1
+    //     | _ -> printfn "got %A" message
+
+    let hex_hashes = [
+        "9745f7173ef14ee4155722d1cbf13304339fd00d900b759c6f9d58579b5765fb";
+        "5573c8ede34936c29cdfdfe743f7f5fdfbd4f54ba0705259e62f39917065cb9b";
+        "82a02ecbb6623b4274dfcab82b336dc017a27136e08521091e443e62582e8f05";
+        "507ccae5ed9b340363a0e6d765af148be9cb1c8766ccc922f83e4ae681658308";
+        "a7a4aec28e7162e1e9ef33dfa30f0bc0526e6cf4b11a576f6c5de58593898330";
+        "bb6267664bd833fd9fc82582853ab144fece26b7a8a5bf328f8a059445b59add";
+        "ea6d7ac1ee77fbacee58fc717b990c4fcccf1b19af43103c090f601677fd8836";
+        "457743861de496c429912558a106b810b0507975a49773228aa788df40730d41";
+        "7688029288efc9e9a0011c960a6ed9e5466581abf3e3a6c26ee317461add619a";
+        "b1ae7f15836cb2286cdd4e2c37bf9bb7da0a2846d06867a429f654b2e7f383c9";
+        "9b74f89fa3f93e71ff2c241f32945d877281a6a50a6bf94adac002980aafe5ab";
+        "b3a92b5b255019bdaf754875633c2de9fec2ab03e6b8ce669d07cb5b18804638";
+        "b5c0b915312b9bdaedd2b86aa2d0f8feffc73a2d37668fd9010179261e25e263";
+        "c9d52c5cb1e557b92c84c52e7c4bfbce859408bedffc8a5560fd6e35e10b8800";
+        "c555bc5fc3bc096df0a0c9532f07640bfb76bfe4fc1ace214b8b228a1297a4c2";
+        "f9dbfafc3af3400954975da24eb325e326960a25b87fffe23eef3e7ed2fb610e" ]
+    let hashes = [for x in hex_hashes -> bytes_from_hex x ]
+    let tree = FullMerkleTree.Create hashes
+    printfn "total = %d" tree.Total
+    printfn "max_depth = %d" tree.MaxDepth
+    printfn "%A" tree
+
+    let tree = MerkleTree.Create 27
+    printfn "%A" tree
 
     0 // return an integer exit code
