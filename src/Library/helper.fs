@@ -261,15 +261,3 @@ let merkle_root (hashes: byte array list) =
     while hashes.Length > 1 do
         hashes <- merkle_parent_level hashes
     hashes.Head
-
-let merkle_parent_level_option (hashes: byte array option list) =
-    let mutable hashes = if hashes.Length % 2 = 0 then hashes else hashes @ [ List.last hashes ]
-    let mutable parent_level = []
-    while not (List.isEmpty hashes) do
-        match hashes with
-        | Some left :: Some right :: rest ->
-            let parent = merkle_parent left right
-            parent_level <- Some parent :: parent_level
-            hashes <- rest
-        | _ -> ()
-    List.rev parent_level

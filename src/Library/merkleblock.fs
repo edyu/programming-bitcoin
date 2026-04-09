@@ -26,7 +26,7 @@ type FullMerkleTree = private { nodes: byte array list list } with
             nodes <- helper.merkle_parent_level nodes.Head :: nodes
         { nodes = nodes }
 
-type MerkleTree = private { mutable current_depth: int; mutable current_index: int; total: int; mutable nodes: byte array option list array } with
+type MerkleTree = private { mutable current_depth: int; mutable current_index: int; total: int; mutable nodes: byte array list array } with
     member this.Nodes = this.nodes
 
     member this.Total = this.total
@@ -37,9 +37,7 @@ type MerkleTree = private { mutable current_depth: int; mutable current_index: i
         let mutable result: string list = []
         for i, level in Array.indexed this.Nodes do
             let nodes = [ for j, x in List.indexed level ->
-                            let short = match x with
-                                            | None -> "None"
-                                            | Some h -> (helper.bytes_to_hex h)[0..7] + "..."
+                            let short = if Array.isEmpty x then "None" else (helper.bytes_to_hex x)[0..7] + "..."
                             if i = this.current_depth && j = this.current_index then
                                 "*" + short + "*"
                             else
@@ -53,7 +51,7 @@ type MerkleTree = private { mutable current_depth: int; mutable current_index: i
         let mutable nodes = Array.zeroCreate (max_depth + 1)
         for i in [0..max_depth] do
             let num_items = int (Math.Ceiling (float total / 2.0 ** float(max_depth - i)))
-            nodes[i] <- List.init num_items (fun _ -> None)
+            nodes[i] <- List.init num_items (fun _ -> [||])
         { current_depth = 0; current_index = 0; total = total; nodes = nodes }
 
     member this.up =

@@ -873,18 +873,18 @@ let ``test merkle tree creation`` () =
         "f9dbfafc3af3400954975da24eb325e326960a25b87fffe23eef3e7ed2fb610e" ]
     let hashes = [for x in hex_hashes -> bytes_from_hex x ]
     let tree = MerkleTree.Create hashes.Length
-    tree.Nodes[4] <- [ for x in hashes -> Some x ]
-    tree.Nodes[3] <- merkle_parent_level_option tree.Nodes[4]
-    tree.Nodes[2] <- merkle_parent_level_option tree.Nodes[3]
-    tree.Nodes[1] <- merkle_parent_level_option tree.Nodes[2]
-    tree.Nodes[0] <- merkle_parent_level_option tree.Nodes[1]
+    tree.Nodes[4] <- hashes
+    tree.Nodes[3] <- merkle_parent_level tree.Nodes[4]
+    tree.Nodes[2] <- merkle_parent_level tree.Nodes[3]
+    tree.Nodes[1] <- merkle_parent_level tree.Nodes[2]
+    tree.Nodes[0] <- merkle_parent_level tree.Nodes[1]
     Assert.Equal(tree.Total, 16)
     Assert.Equal(tree.MaxDepth, 4)
     Assert.Equal(tree.Nodes[0].Length, 1)
     Assert.Equal(tree.Nodes[tree.MaxDepth].Length, 16)
-    Assert.Equal((bytes_to_hex (Option.get (tree.Nodes[0][0])))[0..7], "597c4baf")
-    Assert.Equal((bytes_to_hex (Option.get (tree.Nodes[tree.MaxDepth][0])))[0..7], "9745f717")
-    Assert.Equal((bytes_to_hex (Option.get (tree.Nodes[2][2])))[0..7], "7ab01bb6")
+    Assert.Equal((bytes_to_hex <| tree.Nodes[0][0])[0..7], "597c4baf")
+    Assert.Equal((bytes_to_hex <| tree.Nodes[tree.MaxDepth][0])[0..7], "9745f717")
+    Assert.Equal((bytes_to_hex <| tree.Nodes[2][2])[0..7], "7ab01bb6")
 
 [<Fact>]
 let ``test merkle tree traversal`` () =
@@ -908,27 +908,25 @@ let ``test merkle tree traversal`` () =
         "38faf8c811988dff0a7e6080b1771c97bcc0801c64d9068cffb85e6e7aacaf51" ]
     let hashes = [for x in hex_hashes -> bytes_from_hex x ]
     let tree = MerkleTree.Create hashes.Length
-    tree.Nodes[5] <- [ for x in hashes -> Some x ]
-    while tree.root = None do
+    tree.Nodes[5] <- hashes
+    while Array.isEmpty tree.root do
         if tree.is_leaf then
             tree.up
         else
             let left_node = tree.get_left_node
-            if left_node = None then
+            if Array.isEmpty left_node then
                 tree.left
             else if tree.right_exists then
                 let right_node = tree.get_right_node
-                if right_node = None then
+                if Array.isEmpty right_node then
                     tree.right
                 else
-                    let left_hash =  Option.get left_node
-                    let right_hash =  Option.get right_node
-                    tree.set_current_node <| Some (merkle_parent left_hash right_hash)
+                    tree.set_current_node <| merkle_parent left_node right_node
                     tree.up
             else
-                let left_hash = Option.get left_node
-                tree.set_current_node <| Some (merkle_parent left_hash left_hash)
+                tree.set_current_node <| merkle_parent left_node left_node
                 tree.up
+
     Assert.Equal(tree.Total, 17)
     Assert.Equal(tree.MaxDepth, 5)
     Assert.Equal(tree.Nodes[0].Length, 1)
@@ -936,7 +934,7 @@ let ``test merkle tree traversal`` () =
     Assert.Equal(tree.Nodes[2].Length, 3)
     Assert.Equal(tree.Nodes[tree.MaxDepth - 1].Length, 9)
     Assert.Equal(tree.Nodes[tree.MaxDepth].Length, 17)
-    Assert.Equal((bytes_to_hex (Option.get (tree.Nodes[0][0])))[0..7], "0a313864")
-    Assert.Equal((bytes_to_hex (Option.get (tree.Nodes[1][0])))[0..7], "597c4baf")
-    Assert.Equal((bytes_to_hex (Option.get (tree.Nodes[tree.MaxDepth][0])))[0..7], "9745f717")
-    Assert.Equal((bytes_to_hex (Option.get (tree.Nodes[2][2])))[0..7], "5647f416")
+    Assert.Equal((bytes_to_hex <| tree.Nodes[0][0])[0..7], "0a313864")
+    Assert.Equal((bytes_to_hex <| tree.Nodes[1][0])[0..7], "597c4baf")
+    Assert.Equal((bytes_to_hex <| tree.Nodes[tree.MaxDepth][0])[0..7], "9745f717")
+    Assert.Equal((bytes_to_hex <| tree.Nodes[2][2])[0..7], "5647f416")

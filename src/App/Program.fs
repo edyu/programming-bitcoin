@@ -281,30 +281,24 @@ let main args =
         "38faf8c811988dff0a7e6080b1771c97bcc0801c64d9068cffb85e6e7aacaf51" ]
     let hashes = [for x in hex_hashes -> bytes_from_hex x ]
     let tree = MerkleTree.Create hashes.Length
-    tree.Nodes[5] <- [ for x in hashes -> Some x ]
-    while tree.root = None do
+    tree.Nodes[5] <- hashes
+    while Array.isEmpty tree.root do
         if tree.is_leaf then
             tree.up
         else
             let left_node = tree.get_left_node
-            if left_node = None then
+            if Array.isEmpty left_node then
                 tree.left
             else if tree.right_exists then
                 let right_node = tree.get_right_node
-                if right_node = None then
+                if Array.isEmpty right_node then
                     tree.right
                 else
-                    match left_node, right_node with
-                    | Some left_hash, Some right_hash ->
-                        tree.set_current_node <| Some (merkle_parent left_hash right_hash)
-                        tree.up
-                    | _ -> failwith "left and right nodes do not both exist"
-            else
-                match left_node with
-                | Some left_hash ->
-                    tree.set_current_node <| Some (merkle_parent left_hash left_hash)
+                    tree.set_current_node <| merkle_parent left_node right_node
                     tree.up
-                | _ -> failwith "left node does not all exist"
+            else
+                tree.set_current_node <| merkle_parent left_node left_node
+                tree.up
     printfn "%A" tree
 
     0 // return an integer exit code
