@@ -11,7 +11,7 @@ type FullMerkleTree = private { nodes: byte array list list } with
 
     member this.MaxDepth = calculate_max_depth this.Total
 
-    override this.ToString (): string = 
+    override this.ToString (): string =
         let mutable result: string list = []
         for level in this.Levels do
             let nodes = [for x in level -> (helper.bytes_to_hex x)[0..7] + "..."]
@@ -26,29 +26,67 @@ type FullMerkleTree = private { nodes: byte array list list } with
             nodes <- helper.merkle_parent_level nodes.Head :: nodes
         { nodes = nodes }
 
-type MerkleTree = private { mutable current_depth: int; mutable current_index: int; total: int; nodes: byte array option list list } with
-    member this.Levels = this.nodes
+type MerkleTree = private { mutable current_depth: int; mutable current_index: int; total: int; mutable nodes: byte array option list array } with
+    member this.Nodes = this.nodes
 
     member this.Total = this.total
 
     member this.MaxDepth = calculate_max_depth this.total
 
-    override this.ToString (): string = 
+    override this.ToString (): string =
         let mutable result: string list = []
-        for level in this.Levels do
-            let nodes = [ for x in level ->
-                            match x with
-                            | None -> "None"
-                            | Some h -> (helper.bytes_to_hex h)[0..7] + "..."
+        for i, level in Array.indexed this.Nodes do
+            let nodes = [ for j, x in List.indexed level ->
+                            let short = match x with
+                                            | None -> "None"
+                                            | Some h -> (helper.bytes_to_hex h)[0..7] + "..."
+                            if i = this.current_depth && j = this.current_index then
+                                "*" + short + "*"
+                            else
+                                short
                         ]
             result <- String.Join(',', nodes) :: result
-        String.Join('\n', result)
+        String.Join('\n', List.rev result)
 
     static member Create (total: int) =
         let max_depth = calculate_max_depth total
-        let mutable nodes = []
-        for depth in [0..max_depth] do
-            let num_items = int (Math.Ceiling (float total / 2.0 ** float(max_depth - depth)))
-            let level_hashes = [ for i in 1 .. num_items -> None ]
-            nodes <- level_hashes :: nodes
+        let mutable nodes = Array.zeroCreate (max_depth + 1)
+        for i in [0..max_depth] do
+            let num_items = int (Math.Ceiling (float total / 2.0 ** float(max_depth - i)))
+            nodes[i] <- List.init num_items (fun _ -> None)
         { current_depth = 0; current_index = 0; total = total; nodes = nodes }
+
+    member this.up =
+        this.current_depth <- this.current_depth - 1
+        this.current_index <- this.current_index / 2
+
+    member this.left =
+        this.current_depth <- this.current_depth + 1
+        this.current_index <- this.current_index * 2
+
+    member this.right =
+        this.current_depth <- this.current_depth + 1
+        this.current_index <- this.current_index * 2 + 1
+
+    member this.root =
+        this.Nodes[0][0]
+
+    member this.set_current_node value =
+        let i = this.current_index
+        let list = this.nodes[this.current_depth]
+        this.Nodes[this.current_depth] <- helper.list_update i list value
+
+    member this.get_current_node =
+        this.Nodes[this.current_depth][this.current_index]
+
+    member this.get_left_node =
+        this.Nodes[this.current_depth + 1][this.current_index * 2]
+
+    member this.get_right_node =
+        this.Nodes[this.current_depth + 1][this.current_index * 2 + 1]
+
+    member this.is_leaf =
+        this.current_depth = this.MaxDepth
+
+    member this.right_exists =
+        this.Nodes[this.current_depth + 1].Length > this.current_index * 2 + 1

@@ -38,7 +38,7 @@ type NetworkEnvelope = { command: byte array; payload: byte array; testnet: bool
             failwith $"magic is not right {helper.bytes_to_hex magic} vs {helper.bytes_to_hex expected_magic}"
         let buffer12 = Array.zeroCreate<byte> 12
         stream.ReadExactly buffer12
-        let command = buffer12 |> Array.rev |> Seq.skipWhile (fun x -> x = 0uy) |> Array.ofSeq |> Array.rev 
+        let command = buffer12 |> Array.rev |> Seq.skipWhile (fun x -> x = 0uy) |> Array.ofSeq |> Array.rev
         stream.ReadExactly buffer4
         let payload_length = int <| helper.little_endian_to_int buffer4
         stream.ReadExactly buffer4
@@ -81,11 +81,11 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
                             ?receiver_services0: uint64, ?receiver_address0: Address, ?receiver_port0: uint16,
                             ?sender_services0: uint64, ?sender_address0: Address, ?sender_port0: uint16,
                             ?latest_block0: uint32, ?relay0: bool) =
-        let version = defaultArg version0 70015u 
+        let version = defaultArg version0 70015u
         let services = defaultArg services0 0UL
         let timestamp0 = defaultArg timestamp0 None
         let timestamp = match timestamp0 with
-                        | None -> uint64 <| DateTimeOffset.UtcNow.ToUnixTimeSeconds() 
+                        | None -> uint64 <| DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                         | Some t -> t
         let receiver_services = defaultArg receiver_services0 0UL
         let receiver_address = defaultArg receiver_address0 (IP <| IPAddress.Parse "0.0.0.0")
@@ -173,7 +173,7 @@ type VerAckMessage = private { body: byte array } with
     static member Create =
         { body = [||] }
 
-    static member Parse stream = 
+    static member Parse stream =
         VerAckMessage.Create
 
     member this.Serialize = this.body
@@ -184,7 +184,7 @@ type PingMessage = private { nonce: byte array } with
     static member Create (nonce: byte array) =
         { nonce = nonce }
 
-    static member Parse (stream: Stream) = 
+    static member Parse (stream: Stream) =
         let nonce = Array.zeroCreate<byte> 8
         stream.ReadExactly nonce
         PingMessage.Create nonce
@@ -197,7 +197,7 @@ type PongMessage = private { nonce: byte array } with
     static member Create (nonce: byte array) =
         { nonce = nonce }
 
-    static member Parse (stream: Stream) = 
+    static member Parse (stream: Stream) =
         let nonce = Array.zeroCreate<byte> 8
         stream.ReadExactly nonce
         PongMessage.Create nonce
@@ -227,7 +227,7 @@ type HeadersMessage = private { blocks: block.Block[] } with
     static member Create (blocks: block.Block[]) =
         { blocks = blocks }
 
-    static member Parse (stream: Stream) = 
+    static member Parse (stream: Stream) =
         let num_headers = int <| helper.read_varint stream
         let mutable blocks = []
         for _ in [1..num_headers] do
@@ -242,7 +242,7 @@ type HeadersMessage = private { blocks: block.Block[] } with
 type Message = Version of VersionMessage | VerAck of VerAckMessage | Ping of PingMessage | Pong of PongMessage | GetHeaders of GetHeadersMessage | Headers of HeadersMessage
 
 type SimpleNode = private { host: string; port: int; testnet: bool; logging: bool; stream: Stream } with
-    static member Create(host: string, ?testnet0: bool, ?port0: int, ?logging0: bool) = 
+    static member Create(host: string, ?testnet0: bool, ?port0: int, ?logging0: bool) =
         let testnet = defaultArg testnet0 false
         let logging = defaultArg logging0 false
         let port = if testnet then defaultArg port0 18333 else defaultArg port0 8333

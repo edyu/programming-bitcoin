@@ -277,14 +277,34 @@ let main args =
         "b5c0b915312b9bdaedd2b86aa2d0f8feffc73a2d37668fd9010179261e25e263";
         "c9d52c5cb1e557b92c84c52e7c4bfbce859408bedffc8a5560fd6e35e10b8800";
         "c555bc5fc3bc096df0a0c9532f07640bfb76bfe4fc1ace214b8b228a1297a4c2";
-        "f9dbfafc3af3400954975da24eb325e326960a25b87fffe23eef3e7ed2fb610e" ]
+        "f9dbfafc3af3400954975da24eb325e326960a25b87fffe23eef3e7ed2fb610e";
+        "38faf8c811988dff0a7e6080b1771c97bcc0801c64d9068cffb85e6e7aacaf51" ]
     let hashes = [for x in hex_hashes -> bytes_from_hex x ]
-    let tree = FullMerkleTree.Create hashes
-    printfn "total = %d" tree.Total
-    printfn "max_depth = %d" tree.MaxDepth
-    printfn "%A" tree
-
-    let tree = MerkleTree.Create 27
+    let tree = MerkleTree.Create hashes.Length
+    tree.Nodes[5] <- [ for x in hashes -> Some x ]
+    while tree.root = None do
+        if tree.is_leaf then
+            tree.up
+        else
+            let left_node = tree.get_left_node
+            if left_node = None then
+                tree.left
+            else if tree.right_exists then
+                let right_node = tree.get_right_node
+                if right_node = None then
+                    tree.right
+                else
+                    match left_node, right_node with
+                    | Some left_hash, Some right_hash ->
+                        tree.set_current_node <| Some (merkle_parent left_hash right_hash)
+                        tree.up
+                    | _ -> failwith "left and right nodes do not both exist"
+            else
+                match left_node with
+                | Some left_hash ->
+                    tree.set_current_node <| Some (merkle_parent left_hash left_hash)
+                    tree.up
+                | _ -> failwith "left node does not all exist"
     printfn "%A" tree
 
     0 // return an integer exit code
