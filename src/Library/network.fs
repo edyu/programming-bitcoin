@@ -238,6 +238,48 @@ type HeadersMessage = private { blocks: block.Block[] } with
             blocks <- b :: blocks
         HeadersMessage.Create <| Array.ofList (List.rev blocks)
 
+type DataType =
+| TX = 1
+| BLOCK = 2
+| FILTERED_BLOCK = 3
+| COMPACT_BLOCK = 4
+
+type GetDataMessage = private { mutable data: (DataType * byte array) list } with
+    static member Command = Encoding.ASCII.GetBytes "getdata"
+
+    static member Create =
+        { data = [] }
+
+    member this.AddData (data_type: DataType) (identifier: byte array) =
+        this.data <- (data_type, identifier) :: this.data
+
+    member this.Serialize =
+        let mutable result = []
+        let len = helper.encode_varint <| uint64 this.data.Length
+        result <- len :: result
+        for data_type, identifier in List.rev this.data do
+            result <- helper.int_to_little_endian(uint64 data_type, 4) :: result
+            result <- Array.rev identifier :: result
+        Array.concat <| List.rev result
+
+type GenericMessage = private { command: byte array; payload: byte array } with
+    member this.Command = this.command
+    member this.Payload = this.payload
+
+    static member Create (command: string, payload: byte array) =
+        { command = Encoding.ASCII.GetBytes command; payload = payload }
+
+    static member Parse (stream: Stream) =
+        let clen = int <| helper.read_varint stream
+        let command = Array.zeroCreate<byte> clen
+        stream.ReadExactly command
+        let plen = int <| helper.read_varint stream
+        let payload = Array.zeroCreate<byte> plen
+        stream.ReadExactly payload
+        { command = command; payload = payload }
+
+    member this.Serialize = this.Payload
+
 // type Message = VersionMessage | VerAckMessage
 type Message = Version of VersionMessage | VerAck of VerAckMessage | Ping of PingMessage | Pong of PongMessage | GetHeaders of GetHeadersMessage | Headers of HeadersMessage
 

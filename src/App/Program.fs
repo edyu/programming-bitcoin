@@ -1,5 +1,6 @@
 ﻿open System
 open System.IO
+open System.Text
 open Library
 open ecc
 open helper
@@ -7,6 +8,7 @@ open tx
 open block
 open network
 open merkleblock
+open bloomfilter
 
 [<EntryPoint>]
 let main args =
@@ -261,16 +263,10 @@ let main args =
     //                             count <- count + 1
     //     | _ -> printfn "got %A" message
 
-    let bytes = System.Text.Encoding.ASCII.GetBytes ""
-    let mm3 = murmur3 bytes 0u
-    printfn "murmur3(\"\")=%d" mm3
-
-    let bytes = System.Text.Encoding.ASCII.GetBytes "a"
-    let mm3 = murmur3 bytes 0u
-    printfn "murmur3(\"a\")=%d" mm3
-
-    let bytes = System.Text.Encoding.ASCII.GetBytes "hello"
-    let mm3 = murmur3 bytes 0u
-    printfn "murmur3(\"hello\")=%d" mm3
+    let bf = BloomFilter.Create(10, 5, 99u)
+    let item = Encoding.ASCII.GetBytes "Hello World"
+    bf.Add item
+    let bytes = bf.FilterBytes
+    printfn "%A" bytes
 
     0 // return an integer exit code

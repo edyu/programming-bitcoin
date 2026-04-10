@@ -12,6 +12,7 @@ open tx
 open block
 open network
 open merkleblock
+open bloomfilter
 
 [<Fact>]
 let ``test curve valid points`` () =
@@ -1102,3 +1103,39 @@ let ``test murmur3`` () =
     let mm3 = murmur3 bytes 0x9747b28cu
     Assert.Equal(mm3, 0x2fa826cdu)
 
+[<Fact>]
+let ``test bloom filter add`` () =
+    let bf = BloomFilter.Create(10, 5, 99u)
+    let item = Encoding.ASCII.GetBytes "Hello World"
+    bf.Add item
+    let bytes = bf.FilterBytes
+    let expected = "0000000a080000000140"
+    Assert.Equal(expected, bytes_to_hex bytes)
+    let item = Encoding.ASCII.GetBytes "Goodbye!"
+    bf.Add item
+    let bytes = bf.FilterBytes
+    let expected = "4000600a080000010940"
+    Assert.Equal(expected, bytes_to_hex bytes)
+
+[<Fact>]
+let ``test bloom filter load`` () =
+    let bf = BloomFilter.Create(10, 5, 99u)
+    let item = Encoding.ASCII.GetBytes "Hello World"
+    bf.Add item
+    let item = Encoding.ASCII.GetBytes "Goodbye!"
+    bf.Add item
+    let fl = bf.FilterLoad ()
+    let bytes = fl.Serialize
+    let expected = "0a4000600a080000010940050000006300000001"
+    Assert.Equal(expected, bytes_to_hex bytes)
+
+[<Fact>]
+let ``test data data message serialization`` () =
+    let hex_msg = "020300000030eb2540c41025690160a1014c577061596e32e426b712c7ca00000000000000030000001049847939585b0652fba793661c361223446b6fc41089b8be00000000000000"
+    let get_data = GetDataMessage.Create
+    let block1 = bytes_from_hex "00000000000000cac712b726e4326e596170574c01a16001692510c44025eb30"
+    get_data.AddData DataType.FILTERED_BLOCK block1
+    let block2 = bytes_from_hex "00000000000000beb88910c46f6b442312361c6693a7fb52065b583979844910"
+    get_data.AddData DataType.FILTERED_BLOCK block2
+    let bytes = get_data.Serialize
+    Assert.Equal(hex_msg, bytes_to_hex bytes)
