@@ -1090,10 +1090,15 @@ let ``test murmur3`` () =
     let mm3 = murmur3 bytes 0x9747b28cu
     Assert.Equal(mm3, 0x37405bdcu)
 
-    // let bytes = Text.Encoding.ASCII.GetBytes "The quick brown fox jumps over the lazy dog"
-    // let mm3 = murmur3 bytes 0x9747b28cu
-    // Assert.Equal(mm3, 0x2fa826cdu)
+    let bytes = Text.Encoding.ASCII.GetBytes "Hello, world!"
+    let mm3 = murmur3 bytes 0u
+    Assert.Equal(mm3, 0xc0363e43u)
 
-    // let bytes = Text.Encoding.ASCII.GetBytes "Hello, world!"
-    // let mm3 = murmur3 bytes 0x9747b28cu
-    // Assert.Equal(mm3, 0x24884cbau)
+    let bytes = Text.Encoding.ASCII.GetBytes "Hello, world!"
+    let mm3 = murmur3 bytes 0x9747b28cu
+    Assert.Equal(mm3, 0x24884cbau)
+
+    let bytes = Text.Encoding.ASCII.GetBytes "The quick brown fox jumps over the lazy dog"
+    let mm3 = murmur3 bytes 0x9747b28cu
+    Assert.Equal(mm3, 0x2fa826cdu)
+

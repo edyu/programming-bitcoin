@@ -293,41 +293,32 @@ let fmix32 (x: uint32) =
     h <- h * 0xc2b2ae35u
     h ^^^ (h >>> 16)
 
-let murmur3 (data: byte array) (seed: uint32) =
-    let c1 = 0xcc9e2d51u
-    let c2 = 0x1b873593u
-    let r1 = 15
-    let r2 = 13
-    let m = 5u
-    let n = 0xe6546b64u
+let scramble (x: uint32) =
+    let mutable k = x
+    k <- k * 0xcc9e2d51u
+    k <- rotl32 k 15
+    k * 0x1b873593u
 
+let murmur3 (data: byte array) (seed: uint32) =
     let mutable hash = seed
 
-    if data.Length >= 4 then
-        for i in 0 .. 4 .. data.Length - 1 do
-            let mutable k =  uint32 <| little_endian_to_int data[i..i+3]
-            k <- k * c1
-            k <- rotl32 k r1
-            k <- k * c2
+    // read in groups of 4
+    let len = data.Length &&& 0xfffffffc
+    for i in 0 .. 4 .. (len - 1) do
+        let mutable k =  uint32 <| little_endian_to_int data[i..i+3]
+        hash <- hash ^^^ scramble k
+        hash <- rotl32 hash 13
+        hash <- hash * 5u + 0xe6546b64u
 
-            hash <- hash ^^^ k
-            hash <- rotl32 hash r2
-            hash <- hash * m + n
+    // read the rest
+    let tail = Array.rev data[len..]
+    let mutable k = 0u
+    for i in 0 .. tail.Length - 1 do
+        k <- k <<< 8
+        k <- k ||| uint32 tail[i]
 
-    let rem = data.Length - data.Length % 4
-    let tail = data[rem..]
-    let mutable k1 = 0u
+    hash <- hash ^^^ scramble k
 
-    k1 <- if tail.Length >= 3 then uint32(tail[2]) <<< 16 else k1
-    k1 <- if tail.Length >= 2 then k1 ||| (uint32(tail[1]) <<< 8) else k1
-    hash <- if tail.Length >= 1 then
-                k1 <- k1 ||| uint32(tail[0])
-                k1 <- k1 * c1
-                k1 <- rotl32 k1 r1
-                k1 <- k1 * c2
-                hash ^^^ k1
-            else
-                hash
-
+    // finalize
     hash <- hash ^^^ uint32 data.Length
     fmix32 hash
