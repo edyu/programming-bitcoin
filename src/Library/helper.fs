@@ -1,6 +1,7 @@
 module helper
 
 open System
+open System.Collections
 open System.Globalization
 open System.IO
 open System.Net.Http
@@ -261,3 +262,22 @@ let merkle_root (hashes: byte array list) =
     while hashes.Length > 1 do
         hashes <- merkle_parent_level hashes
     hashes.Head
+
+let bit_field_to_bytes (bit_field: byte array) =
+    if bit_field.Length % 8 <> 0 then 
+        failwith "bit_field does not have a length divisible by 8"
+    let mutable result = Array.zeroCreate<byte> <| bit_field.Length / 8
+    for i, bit in Array.indexed bit_field  do
+        let byte_index, bit_index = Math.DivRem(i, 8) 
+        if bit = 0uy then
+            result[byte_index] <- result[byte_index] ||| 1uy <<< bit_index 
+    result
+
+let bytes_to_bit_field (bytes: byte array) =
+    let mutable flag_bits = []
+    for b in bytes do
+        let mutable mb = b
+        for _ in [0..7] do
+            flag_bits <- (mb &&& 1uy) :: flag_bits
+            mb <- mb >>> 1
+    Array.ofList <| List.rev flag_bits

@@ -73,18 +73,18 @@ type Block = private { version: uint32; prev_block: byte[]; merkle_root: byte[];
 
     static member Parse (stream: Stream) =
         let buffer4 = Array.zeroCreate<byte> 4
-        let mutable bytesRead = stream.ReadExactly buffer4
+        stream.ReadExactly buffer4
         let version = uint32 <| helper.little_endian_to_int buffer4
         let buffer32 = Array.zeroCreate<byte> 32
-        bytesRead <- stream.ReadExactly buffer32
+        stream.ReadExactly buffer32
         let prev_block = Array.rev buffer32
-        bytesRead <- stream.ReadExactly buffer32
+        stream.ReadExactly buffer32
         let merkle_root = Array.rev buffer32
-        bytesRead <- stream.ReadExactly buffer4
+        stream.ReadExactly buffer4
         let timestamp = uint32 <| helper.little_endian_to_int buffer4
-        bytesRead <- stream.ReadExactly buffer4
+        stream.ReadExactly buffer4
         let bits = Array.copy buffer4
-        bytesRead <- stream.ReadExactly buffer4
+        stream.ReadExactly buffer4
         let nonce = Array.copy buffer4
         Block.Create(version, prev_block, merkle_root, timestamp, bits, nonce)
 
