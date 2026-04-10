@@ -166,9 +166,9 @@ type MerkleBlock = private { version: uint32; prev_block: byte array; merkle_roo
         stream.ReadExactly buffer4
         let total = uint32 <| helper.little_endian_to_int buffer4
         let num_hashes = int <| helper.read_varint stream
-        let hashes = [ for _ in [1..num_hashes] -> 
+        let hashes = [ for _ in [1..num_hashes] ->
                              stream.ReadExactly buffer32
-                             Array.rev buffer32 
+                             Array.rev buffer32
                      ]
         let flags_len = int <| helper.read_varint stream
         let flags = Array.zeroCreate<byte> flags_len
@@ -176,7 +176,7 @@ type MerkleBlock = private { version: uint32; prev_block: byte array; merkle_roo
         MerkleBlock.Create(version, prev_block, merkle_root, timestamp, bits, nonce, total, hashes, flags)
 
     member this.is_valid =
-        let flag_bits = helper.bytes_to_bit_field this.flags 
+        let flag_bits = helper.bytes_to_bit_field this.flags
         let hashes = [ for h in this.hashes -> Array.rev h ]
         let merkle_tree = MerkleTree.Create <| int this.Total
         merkle_tree.PopulateTree flag_bits hashes

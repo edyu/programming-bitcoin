@@ -1,7 +1,6 @@
 module helper
 
 open System
-open System.Collections
 open System.Globalization
 open System.IO
 open System.Net.Http
@@ -264,13 +263,13 @@ let merkle_root (hashes: byte array list) =
     hashes.Head
 
 let bit_field_to_bytes (bit_field: byte array) =
-    if bit_field.Length % 8 <> 0 then 
+    if bit_field.Length % 8 <> 0 then
         failwith "bit_field does not have a length divisible by 8"
     let mutable result = Array.zeroCreate<byte> <| bit_field.Length / 8
     for i, bit in Array.indexed bit_field  do
-        let byte_index, bit_index = Math.DivRem(i, 8) 
+        let byte_index, bit_index = Math.DivRem(i, 8)
         if bit = 0uy then
-            result[byte_index] <- result[byte_index] ||| 1uy <<< bit_index 
+            result[byte_index] <- result[byte_index] ||| 1uy <<< bit_index
     result
 
 let bytes_to_bit_field (bytes: byte array) =
@@ -281,3 +280,54 @@ let bytes_to_bit_field (bytes: byte array) =
             flag_bits <- (mb &&& 1uy) :: flag_bits
             mb <- mb >>> 1
     Array.ofList <| List.rev flag_bits
+
+let rotl32 (x: uint32) (n: int) =
+    let n = n % 32
+    x <<< n ||| (x >>> 32 - n)
+
+let fmix32 (x: uint32) =
+    let mutable h = x
+    h <- h ^^^ (h >>> 16)
+    h <- h * 0x85ebca6bu
+    h <- h ^^^ (h >>> 13)
+    h <- h * 0xc2b2ae35u
+    h ^^^ (h >>> 16)
+
+let murmur3 (data: byte array) (seed: uint32) =
+    let c1 = 0xcc9e2d51u
+    let c2 = 0x1b873593u
+    let r1 = 15
+    let r2 = 13
+    let m = 5u
+    let n = 0xe6546b64u
+
+    let mutable hash = seed
+
+    if data.Length >= 4 then
+        for i in 0 .. 4 .. data.Length - 1 do
+            let mutable k =  uint32 <| little_endian_to_int data[i..i+3]
+            k <- k * c1
+            k <- rotl32 k r1
+            k <- k * c2
+
+            hash <- hash ^^^ k
+            hash <- rotl32 hash r2
+            hash <- hash * m + n
+
+    let rem = data.Length - data.Length % 4
+    let tail = data[rem..]
+    let mutable k1 = 0u
+
+    k1 <- if tail.Length >= 3 then uint32(tail[2]) <<< 16 else k1
+    k1 <- if tail.Length >= 2 then k1 ||| (uint32(tail[1]) <<< 8) else k1
+    hash <- if tail.Length >= 1 then
+                k1 <- k1 ||| uint32(tail[0])
+                k1 <- k1 * c1
+                k1 <- rotl32 k1 r1
+                k1 <- k1 * c2
+                hash ^^^ k1
+            else
+                hash
+
+    hash <- hash ^^^ uint32 data.Length
+    fmix32 hash
