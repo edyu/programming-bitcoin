@@ -1,8 +1,8 @@
 module merkleblock
 
 open System
-open System.Collections
 open System.IO
+open System.Text
 
 let calculate_max_depth total =  int (Math.Ceiling (Math.Log2 <| float total))
 
@@ -129,6 +129,8 @@ type MerkleTree = private { mutable current_depth: int; mutable current_index: i
                 failwith "flag bit not all consumed"
 
 type MerkleBlock = private { version: uint32; prev_block: byte array; merkle_root: byte array; timestamp: uint32; bits: byte array; nonce: byte array; total: uint32; hashes: byte array list; flags: byte array } with
+    static member Command = Encoding.ASCII.GetBytes "merkleblock"
+
     member this.Version = this.version
     member this.PrevBlock = this.prev_block
     member this.MerkleRoot = this.merkle_root
@@ -166,6 +168,7 @@ type MerkleBlock = private { version: uint32; prev_block: byte array; merkle_roo
         stream.ReadExactly buffer4
         let total = uint32 <| helper.little_endian_to_int buffer4
         let num_hashes = int <| helper.read_varint stream
+        printfn "merkle: found %d hashes" num_hashes
         let hashes = [ for _ in [1..num_hashes] ->
                              stream.ReadExactly buffer32
                              Array.rev buffer32

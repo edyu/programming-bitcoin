@@ -228,45 +228,52 @@ let main args =
     let new_target = bits_to_target new_bits
     printfn "%A" (bigint_to_hex new_target)
 
-    // // let node = SimpleNode.Create("testnet.programmingbitcoin.com", true, 18333, true)
-    // let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false, 8333, false)
-    // let _ = node.Handshake
-    // use stream = new MemoryStream(GENESIS_BLOCK)
-    // // use stream = new MemoryStream(TESTNET_GENESIS_BLOCK)
-    // let genesis = Block.Parse stream
-    // let mutable previous = genesis
-    // let mutable first_epoch_timestamp = previous.Timestamp
-    // let mutable expected_bits = LOWEST_BITS
-    // let mutable count = 1
-    // for i in [0..19] do
-    //     let getheaders = GetHeadersMessage.Create previous.hash
-    //     node.Send <| GetHeaders getheaders
-    //     let message = node.WaitFor [HeadersMessage.Command]
-    //     match message with
-    //     | Headers headers -> for header in headers.Blocks do
-    //                             if not header.check_pow then
-    //                                 failwith $"bad PoW at block {count}"
-    //                             if header.PrevBlock <> previous.hash then
-    //                                 failwith $"discontinuous block at {count}"
-    //                             if count % 2016 = 0 then
-    //                                 let time_diff = previous.Timestamp - first_epoch_timestamp
-    //                                 if previous.Timestamp < first_epoch_timestamp then
-    //                                     printfn "time diff is negative"
-    //                                 expected_bits  <- calculate_new_bits previous.Bits time_diff
-    //                                 if previous.Bits <> expected_bits then
-    //                                     printfn "%s -> %s" (bytes_to_hex previous.Bits) (bytes_to_hex expected_bits)
-    //                                 else
-    //                                     printfn "%s" <| bytes_to_hex expected_bits
-    //                                 first_epoch_timestamp <- header.Timestamp
-    //                             // printfn "header: %A" header
-    //                             previous <- header
-    //                             count <- count + 1
-    //     | _ -> printfn "got %A" message
+    // let last_block_hex = "00000000000538d5c2246336644f9a4956551afb44ba47278759ec55ea912e19"
+    // 944537
+    let last_block_hex = "00000000000000000001f84a7b51e758f507712453b28a176903dfa898c54e7b"
+    // 944536
+    // let last_block_hex = "00000000000000000000b80cde5169c78b8da63cee64d4472044629a61662be7"
 
-    let bf = BloomFilter.Create(10, 5, 99u)
-    let item = Encoding.ASCII.GetBytes "Hello World"
-    bf.Add item
-    let bytes = bf.FilterBytes
-    printfn "%A" bytes
+    // let address = "mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv"
+    let address = "1MWP6sgVVwm4NfFe3RHQmQUpsF2K1jLcZ7"
+    let h160 = decode_base58_checksum address
+    // let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false)
+    let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false)
+    let bf = BloomFilter.Create(30, 5, 90210u)
+    bf.Add h160
+    let _ = node.Handshake
+    node.Send (Message (bf.FilterLoad()))
+    let start_block = bytes_from_hex last_block_hex
+    let getheaders = GetHeadersMessage.Create start_block
+    node.Send (GetHeaders getheaders)
+    let getdata = GetDataMessage.Create
+    let message = node.WaitFor [HeadersMessage.Command]
+    match message with
+    | Headers headers ->
+        for b in headers.Blocks do
+            printfn "got headers message: %s" b.Id
+            if not b.check_pow then
+                failwith $"proof of work is invalid"
+            getdata.AddData DataType.FILTERED_BLOCK b.hash
+    | _ -> failwith "wrong headers message"
+    node.Send (GetData getdata)
+    let mutable found = false
+    while not found do
+        let message = node.WaitFor [MerkleBlock.Command; Tx.Command]
+        // let message = node.WaitFor [Tx.Command]
+        match message with
+        | MerkleBlock m ->
+            printfn "got merkle block %A" m
+            if not m.is_valid then
+                failwith "invalid merkle proof"
+        | Tx m ->
+            printfn "got tx message"
+            for i, tx_out in Array.indexed m.TxOuts do
+                if tx_out.ScriptPubKey.Address false = address then
+                    printfn $"found {m.Id}:{i}"
+                    found <- true
+                else
+                    printfn $"not found {m.Id}"
+        | _ -> failwith "wrong merkleblock/tx message"
 
     0 // return an integer exit code

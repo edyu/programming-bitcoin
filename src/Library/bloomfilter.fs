@@ -27,6 +27,6 @@ type BloomFilter = private { size: int; mutable bit_field: BitArray; function_co
         let bytes = this.FilterBytes
         let function_count = helper.int_to_little_endian(uint64 this.function_count, 4)
         let tweak = helper.int_to_little_endian(uint64 this.tweak, 4)
-        let flag = helper.int_to_little_endian(uint64 flag, 1)
+        let flag = [| 1uy |]
         let payload = Array.concat [ size; bytes; function_count; tweak; flag ]
         network.GenericMessage.Create("filterload", payload)

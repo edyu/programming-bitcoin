@@ -2,6 +2,7 @@ module tx
 
 open System.Collections.Generic
 open System.IO
+open System.Text
 
 [<Literal>]
 let SIGHASH_ALL = 1u
@@ -56,6 +57,7 @@ type TxOut = private { amount: uint64; script_pubkey: script.Script } with
         TxOut.Create(amount, script)
 
 type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime: uint32; testnet: bool } with
+    static member Command = Encoding.ASCII.GetBytes "tx"
     member this.Version = this.version
     member this.TxIns = this.tx_ins
     member this.TxOuts = this.tx_outs

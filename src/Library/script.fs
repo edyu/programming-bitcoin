@@ -82,6 +82,20 @@ type Script = private { program: op.Cmd list } with
                 | op.Code op.OP_HASH160 :: op.Data h160 :: op.Code op.OP_EQUAL :: [] when h160.Length = 20 -> true
                 | _ -> false
 
+    member this.Address (?testnet0: bool) =
+        let testnet = defaultArg testnet0 false
+        if this.IsPublicKeyHash then
+            let h160 = match this.program with
+                        | _ :: _ ::op.Data d :: _ -> d
+                        | _ -> failwith "can't find h160 public key hash"
+            Script.h160_to_p2pkh_address(h160, testnet)
+        else if this.IsScriptHash then
+            let h160 = match this.program with
+                        | _ :: op.Data d :: _ -> d
+                        | _ -> failwith "can't find h160 script hash"
+            Script.h160_to_p2sh_address(h160, testnet)
+        else failwith "can't find any address hash"
+
     member this.Evaluate z =
         let mutable stack = op.Stack.Empty
         let mutable altstack = op.Stack.Empty

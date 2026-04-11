@@ -4,6 +4,8 @@ open System
 open System.Text
 open System.IO
 open System.Net
+open merkleblock
+open tx
 
 let NETWORK_MAGIC = [| 0xf9uy; 0xbeuy; 0xb4uy; 0xd9uy |]
 let TESTNET_NETWORK_MAGIC = [| 0x0buy; 0x11uy; 0x09uy; 0x07uy |]
@@ -76,11 +78,12 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
     member this.LatestBlock = this.latest_block
     member this.Relay = this.relay
 
-    static member Create(?timestamp0: uint64 option, ?nonce0: byte array option, ?user_agent0: string,
+    static member Create(?testnet0: bool, ?timestamp0: uint64 option, ?nonce0: byte array option, ?user_agent0: string,
                             ?version0: uint32, ?services0: uint64,
                             ?receiver_services0: uint64, ?receiver_address0: Address, ?receiver_port0: uint16,
                             ?sender_services0: uint64, ?sender_address0: Address, ?sender_port0: uint16,
                             ?latest_block0: uint32, ?relay0: bool) =
+        let testnet = defaultArg testnet0 false
         let version = defaultArg version0 70015u
         let services = defaultArg services0 0UL
         let timestamp0 = defaultArg timestamp0 None
@@ -89,10 +92,10 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
                         | Some t -> t
         let receiver_services = defaultArg receiver_services0 0UL
         let receiver_address = defaultArg receiver_address0 (IP <| IPAddress.Parse "0.0.0.0")
-        let receiver_port = defaultArg receiver_port0 8333us
+        let receiver_port = if testnet then defaultArg receiver_port0 18333us else defaultArg receiver_port0 8333us
         let sender_services = defaultArg sender_services0 0UL
         let sender_address = defaultArg sender_address0 (IP <| IPAddress.Parse "0.0.0.0")
-        let sender_port = defaultArg sender_port0 8333us
+        let sender_port = if testnet then defaultArg sender_port0 18333us else defaultArg receiver_port0 8333us
         let nonce0 = defaultArg nonce0 None
         let nonce = match nonce0 with
                         | None -> helper.int_to_little_endian(uint64(Random().NextInt64()), 8)
@@ -102,7 +105,8 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
         let relay = defaultArg relay0 false
         { version = version; services = services; timestamp = timestamp; receiver_services = receiver_services; receiver_address = receiver_address; receiver_port = receiver_port; sender_services = sender_services; sender_address = sender_address; sender_port = sender_port; nonce = nonce; user_agent = user_agent; latest_block = latest_block; relay = relay }
 
-    static member Parse (stream: Stream) =
+    static member Parse (stream: Stream, ?testnet0: bool) =
+        let testnet = defaultArg testnet0 false
         let buffer4 = Array.zeroCreate<byte> 4
         stream.ReadExactly buffer4
         let version = uint32 <| helper.little_endian_to_int buffer4
@@ -136,7 +140,7 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
         stream.ReadExactly buffer4
         let latest_block = uint32 <| helper.little_endian_to_int buffer4
         let relay = if stream.ReadByte() = 0x01 then true else false
-        VersionMessage.Create (Some timestamp, Some nonce, user_agent, version, services,
+        VersionMessage.Create(testnet, Some timestamp, Some nonce, user_agent, version, services,
             receiver_services, receiver_address, receiver_port,
             sender_services, sender_address, sender_port,
             latest_block, relay)
@@ -281,7 +285,7 @@ type GenericMessage = private { command: byte array; payload: byte array } with
     member this.Serialize = this.Payload
 
 // type Message = VersionMessage | VerAckMessage
-type Message = Version of VersionMessage | VerAck of VerAckMessage | Ping of PingMessage | Pong of PongMessage | GetHeaders of GetHeadersMessage | Headers of HeadersMessage
+type Message = Version of VersionMessage | VerAck of VerAckMessage | Ping of PingMessage | Pong of PongMessage | GetHeaders of GetHeadersMessage | Headers of HeadersMessage | GetData of GetDataMessage | MerkleBlock of MerkleBlock | Tx of Tx | Message of GenericMessage
 
 type SimpleNode = private { host: string; port: int; testnet: bool; logging: bool; stream: Stream } with
     static member Create(host: string, ?testnet0: bool, ?port0: int, ?logging0: bool) =
@@ -300,6 +304,10 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
                         | Pong m -> NetworkEnvelope.Create(PongMessage.Command, m.Serialize, this.testnet)
                         | GetHeaders m -> NetworkEnvelope.Create(GetHeadersMessage.Command, m.Serialize, this.testnet)
                         | Headers m -> NetworkEnvelope.Create(GetHeadersMessage.Command, [||], this.testnet)
+                        | GetData m -> NetworkEnvelope.Create(GetDataMessage.Command, m.Serialize, this.testnet)
+                        | MerkleBlock m -> NetworkEnvelope.Create(MerkleBlock.Command, [||], this.testnet)
+                        | Tx m -> NetworkEnvelope.Create(Tx.Command, m.Serialize, this.testnet)
+                        | Message m -> NetworkEnvelope.Create(m.Command, m.Serialize, this.testnet)
         if this.logging then
             printfn $"sending {envelope}"
         this.stream.Write envelope.Serialize
@@ -329,13 +337,19 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
         else if command = PongMessage.Command then
             Pong (PongMessage.Parse stream)
         else if command = VersionMessage.Command then
-            Version (VersionMessage.Parse stream)
+            Version (VersionMessage.Parse(stream, this.testnet))
         else if command = VerAckMessage.Command then
             VerAck (VerAckMessage.Parse stream)
-        else
+        else if command = HeadersMessage.Command then
             Headers (HeadersMessage.Parse stream)
+        else if command = MerkleBlock.Command then
+            MerkleBlock (MerkleBlock.Parse stream)
+        else if command = Tx.Command then
+            Tx (Tx.Parse stream)
+        else
+            Message (GenericMessage.Parse stream)
 
     member this.Handshake =
-        let version = VersionMessage.Create ()
+        let version = VersionMessage.Create(this.testnet)
         this.Send (Version version)
         this.WaitFor [VerAckMessage.Command]

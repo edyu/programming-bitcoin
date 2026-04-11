@@ -739,7 +739,7 @@ let ``test network envelope serialization`` () =
 let ``test version message serialization`` () =
     let nonce = Array.zeroCreate 8
     let user_agent = "/programmingbitcoin:0.1/"
-    let v = VersionMessage.Create(Some 0UL, Some nonce, user_agent)
+    let v = VersionMessage.Create(false, Some 0UL, Some nonce, user_agent)
     Assert.Equal("7f11010000000000000000000000000000000000000000000000000000000000000000000000ffff00000000208d000000000000000000000000000000000000ffff00000000208d0000000000000000182f70726f6772616d6d696e67626974636f696e3a302e312f0000000000",
         bytes_to_hex v.Serialize)
 
@@ -1139,3 +1139,10 @@ let ``test data data message serialization`` () =
     get_data.AddData DataType.FILTERED_BLOCK block2
     let bytes = get_data.Serialize
     Assert.Equal(hex_msg, bytes_to_hex bytes)
+
+// testnet doesn't work
+// [<Fact>]
+// let ``test testnet handshake`` () =
+//     // let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false)
+//     let node = SimpleNode.Create("testnet.programmingbitcoin.com", true)
+//     node.Handshake
