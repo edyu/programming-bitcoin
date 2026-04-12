@@ -367,16 +367,24 @@ let try_network testnet last_block_hex target_address =
     let target_script = p2pkh_script target_h160
     let fee = 5000UL
     // connect to network
-    let node = if testnet then SimpleNode.Create("testnet.programmingbitcoin.com", true)
+    // let node = if testnet then SimpleNode.Create("testnet.programmingbitcoin.com", true, 18333, true)
+    // let node = if testnet then SimpleNode.Create("169.155.170.211", true, 18333, true)
+    // let node = if testnet then SimpleNode.Create("3.252.159.108", true, 18333, true)
+    let node = if testnet then SimpleNode.Create("18.118.231.3", true, 18333, true)
+    // let node = if testnet then SimpleNode.Create("64.130.55.190", true, 18333, true)
                else SimpleNode.Create("mainnet.programmingbitcoin.com", false, 8333, true)
     // create a bloom filter of size 30 and 5 functions with a stupid tweak
     let bf = BloomFilter.Create(30, 5, 90210u)
     // add h160 to bloom filter
-    bf.Add h160
-    bf.Add target_h160
+    if testnet then
+        bf.Add h160
+    else
+        bf.Add target_h160
     // complete the handshake
     let _ = node.Handshake
     // load the bloom filter with filterload command
+    // testnet has problems with filterload
+    // if not testnet then
     node.Send (Message (bf.FilterLoad()))
     // set start block to last_block from above
     let start_block = bytes_from_hex last_block_hex
@@ -404,15 +412,17 @@ let try_network testnet last_block_hex target_address =
             last_block <- b.hash
     | _ -> failwith "wrong headers message"
     // send the getdata message
-    if not testnet then
-        getdata.AddData DataType.MSG_TX (bytes_from_hex "950823ccfae573e7e2aa21e4a45b1b3c94e3b383cb9e0a3cfd7f533ea2c64c43")
+    // if not testnet then
+    //     getdata.AddData DataType.MSG_TX (bytes_from_hex "950823ccfae573e7e2aa21e4a45b1b3c94e3b383cb9e0a3cfd7f533ea2c64c43")
     node.Send (GetData getdata)
     // initialize prev_tx, prev_index and prev_amount to zero values
     let mutable prev_tx = [||]
     let mutable prev_index = 0u
     let mutable prev_amount = 0UL
     let mutable isdone = false
+    let mutable count = 0
     while Array.isEmpty prev_tx && isdone = false do
+        printfn "count is %d" count
         // wait for merkleblock or tx commands
         let message = node.WaitFor [MerkleBlock.Command; Tx.Command; NotFoundMessage.Command]
         match message with
@@ -432,7 +442,7 @@ let try_network testnet last_block_hex target_address =
         | Tx m ->
             printfn "got tx message %A" m
             for i, tx_out in Array.indexed m.TxOuts do
-                if tx_out.ScriptPubKey.Address true = addr then
+                if tx_out.ScriptPubKey.Address testnet = addr then
                     // we found our utxo
                     prev_tx <- m.hash
                     prev_index <- uint32 <| i
@@ -442,6 +452,7 @@ let try_network testnet last_block_hex target_address =
                 else
                     printfn $"not found {m.Id}"
         | _ -> failwith "wrong merkleblock/tx message"
+        count <- count + 1
     if not (Array.isEmpty prev_tx) then
         // create the TxIn
         let tx_in = TxIn.Create(prev_tx, prev_index)
@@ -451,7 +462,7 @@ let try_network testnet last_block_hex target_address =
         let tx_out = TxOut.Create(output_amount, target_script)
         // create a new transaction with the one input and one output
         let tx_obj = Tx.Create(1u, [|tx_in|], [|tx_out|], 0u, testnet)
-        let ok = TxHelper.sign_input tx_obj 0 private_key
+        let ok = TxHelper.sign_input tx_obj 0 private_key testnet
         printfn "transaction signed: %A" ok
         printfn "%s" (bytes_to_hex tx_obj.Serialize)
         node.Send (Tx tx_obj)
@@ -480,6 +491,7 @@ let test_mainnet () =
 
 let test_testnet () =
     // let last_block_hex = "00000000000538d5c2246336644f9a4956551afb44ba47278759ec55ea912e19"
+    // 1446816
     let last_block_hex = "00000000000000a03f9432ac63813c6710bfe41712ac5ef6faab093fe2917636"
     let target_address = "mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv"
     try_network true last_block_hex target_address

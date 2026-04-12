@@ -33,9 +33,9 @@ type NetworkEnvelope = { command: byte array; payload: byte array; testnet: bool
         let buffer4 = Array.zeroCreate<byte> 4
         let bytesRead = stream.Read(buffer4, 0, 4)
         if bytesRead <> 4 then
-            failwith "connection reset!"
+            failwith $"connection reset!"
         let expected_magic = if testnet then TESTNET_NETWORK_MAGIC else NETWORK_MAGIC
-        let magic = buffer4
+        let magic = Array.copy buffer4
         if magic <> expected_magic then
             failwith $"magic is not right {helper.bytes_to_hex magic} vs {helper.bytes_to_hex expected_magic}"
         let buffer12 = Array.zeroCreate<byte> 12
@@ -60,29 +60,28 @@ type NetworkEnvelope = { command: byte array; payload: byte array; testnet: bool
         Array.concat [ this.Magic; command; helper.int_to_little_endian(uint64 this.payload.Length, 4); hash; this.payload ]
 
 type VersionMessage = private { version: uint32; services: uint64; timestamp: uint64;
-                                receiver_services: uint64; receiver_address: Address; receiver_port: uint16;
-                                sender_services: uint64; sender_address: Address; sender_port: uint16;
+                                remote_services: uint64; remote_address: Address; remote_port: uint16;
+                                local_services: uint64; local_address: Address; local_port: uint16;
                                 nonce: byte array; user_agent: string; latest_block: uint32; relay: bool } with
     static member Command = Encoding.ASCII.GetBytes "version"
     member this.Version = this.version
     member this.Services = this.services
     member this.Timestamp = this.timestamp
-    member this.ReceiverServices = this.receiver_services
-    member this.ReceiverAddress = this.receiver_address
-    member this.ReceiverPort = this.receiver_port
-    member this.SenderServices = this.sender_services
-    member this.SenderAddress = this.sender_address
-    member this.SenderPort = this.sender_port
+    member this.RemoteServices = this.remote_services
+    member this.remoteAddress = this.remote_address
+    member this.remotePort = this.remote_port
+    member this.LocalServices = this.local_services
+    member this.LocalAddress = this.local_address
+    member this.LocalPort = this.local_port
     member this.Nonce = this.nonce
     member this.UserAgent = this.user_agent
     member this.LatestBlock = this.latest_block
     member this.Relay = this.relay
 
-    static member Create(?testnet0: bool, ?timestamp0: uint64 option, ?nonce0: byte array option, ?user_agent0: string,
-                            ?version0: uint32, ?services0: uint64,
-                            ?receiver_services0: uint64, ?receiver_address0: Address, ?receiver_port0: uint16,
-                            ?sender_services0: uint64, ?sender_address0: Address, ?sender_port0: uint16,
-                            ?latest_block0: uint32, ?relay0: bool) =
+    static member Create(?testnet0: bool, ?version0: uint32, ?services0: uint64, ?timestamp0: uint64 option,
+                         ?remote_services0: uint64, ?remote_address0: Address, ?remote_port0: uint16,
+                         ?local_services0: uint64, ?local_address0: Address, ?local_port0: uint16,
+                         ?nonce0: byte array option, ?user_agent0: string, ?latest_block0: uint32, ?relay0: bool) =
         let testnet = defaultArg testnet0 false
         let version = defaultArg version0 70015u
         let services = defaultArg services0 0UL
@@ -90,12 +89,12 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
         let timestamp = match timestamp0 with
                         | None -> uint64 <| DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                         | Some t -> t
-        let receiver_services = defaultArg receiver_services0 0UL
-        let receiver_address = defaultArg receiver_address0 (IP <| IPAddress.Parse "0.0.0.0")
-        let receiver_port = if testnet then defaultArg receiver_port0 18333us else defaultArg receiver_port0 8333us
-        let sender_services = defaultArg sender_services0 0UL
-        let sender_address = defaultArg sender_address0 (IP <| IPAddress.Parse "0.0.0.0")
-        let sender_port = if testnet then defaultArg sender_port0 18333us else defaultArg receiver_port0 8333us
+        let remote_services = defaultArg remote_services0 0UL
+        let remote_address = defaultArg remote_address0 (IP <| IPAddress.Parse "0.0.0.0")
+        let remote_port = if testnet then defaultArg remote_port0 18333us else defaultArg remote_port0 8333us
+        let local_services = defaultArg local_services0 0UL
+        let local_address = defaultArg local_address0 (IP <| IPAddress.Parse "127.0.0.1")
+        let local_port = if testnet then defaultArg local_port0 18333us else defaultArg local_port0 8333us
         let nonce0 = defaultArg nonce0 None
         let nonce = match nonce0 with
                         | None -> helper.int_to_little_endian(uint64(Random().NextInt64()), 8)
@@ -103,7 +102,7 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
         let user_agent = defaultArg user_agent0 "/programmingbitcoin:0.1/"
         let latest_block = defaultArg latest_block0 0u
         let relay = defaultArg relay0 false
-        { version = version; services = services; timestamp = timestamp; receiver_services = receiver_services; receiver_address = receiver_address; receiver_port = receiver_port; sender_services = sender_services; sender_address = sender_address; sender_port = sender_port; nonce = nonce; user_agent = user_agent; latest_block = latest_block; relay = relay }
+        { version = version; services = services; timestamp = timestamp; remote_services = remote_services; remote_address = remote_address; remote_port = remote_port; local_services = local_services; local_address = local_address; local_port = local_port; nonce = nonce; user_agent = user_agent; latest_block = latest_block; relay = relay }
 
     static member Parse (stream: Stream, ?testnet0: bool) =
         let testnet = defaultArg testnet0 false
@@ -113,24 +112,24 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
         let buffer8 = Array.zeroCreate<byte> 8
         let services = helper.little_endian_to_int buffer8
         let timestamp = helper.little_endian_to_int buffer8
-        let receiver_services = helper.little_endian_to_int buffer8
+        let remote_services = helper.little_endian_to_int buffer8
         let buffer16 = Array.zeroCreate<byte> 16
         let prefix = Array.zeroCreate<byte> 10
         let marker = [|0xffuy; 0xffuy|]
         stream.ReadExactly buffer16
-        let receiver_address = if buffer16[0..9] = prefix && buffer16[10..11] = marker then
+        let remote_address = if buffer16[0..9] = prefix && buffer16[10..11] = marker then
                                    IP <| IPAddress(buffer16[12..15])
                                else
                                    Raw <| Array.copy buffer16
         let buffer2 = Array.zeroCreate<byte> 2
         stream.ReadExactly buffer2
-        let receiver_port = uint16 <| helper.big_endian_to_int buffer2
-        let sender_services = helper.little_endian_to_int buffer8
-        let sender_address = if buffer16[0..9] = prefix && buffer16[10..11] = marker then
+        let remote_port = uint16 <| helper.big_endian_to_int buffer2
+        let local_services = helper.little_endian_to_int buffer8
+        let local_address = if buffer16[0..9] = prefix && buffer16[10..11] = marker then
                                  IP <| IPAddress(buffer16[12..15])
                              else
                                  Raw <| Array.copy buffer16
-        let sender_port = uint16 <| helper.big_endian_to_int buffer2
+        let local_port = uint16 <| helper.big_endian_to_int buffer2
         stream.ReadExactly buffer8
         let nonce = buffer8
         let ua_length = helper.read_varint stream
@@ -140,34 +139,34 @@ type VersionMessage = private { version: uint32; services: uint64; timestamp: ui
         stream.ReadExactly buffer4
         let latest_block = uint32 <| helper.little_endian_to_int buffer4
         let relay = if stream.ReadByte() = 0x01 then true else false
-        VersionMessage.Create(testnet, Some timestamp, Some nonce, user_agent, version, services,
-            receiver_services, receiver_address, receiver_port,
-            sender_services, sender_address, sender_port,
-            latest_block, relay)
+        VersionMessage.Create(testnet, version, services, Some timestamp,
+            remote_services, remote_address, remote_port,
+            local_services, local_address, local_port,
+            Some nonce, user_agent, latest_block, relay)
 
     member this.Serialize =
         let version = helper.int_to_little_endian(uint64 this.version, 4)
         let services = helper.int_to_little_endian(this.services, 8)
         let timestamp = helper.int_to_little_endian(this.timestamp, 8)
-        let receiver_services = helper.int_to_little_endian(this.receiver_services, 8)
+        let remote_services = helper.int_to_little_endian(this.remote_services, 8)
         let add_prefix = Array.zeroCreate 10
-        let receiver_address = match this.receiver_address with
+        let remote_address = match this.remote_address with
                                 | IP address -> Array.concat [ add_prefix; [|0xffuy; 0xffuy|]; address.GetAddressBytes() ]
                                 | Raw bytes -> bytes
-        let receiver_port = helper.int_to_big_endian(int this.receiver_port, 2)
-        let sender_services = helper.int_to_little_endian(this.sender_services, 8)
-        let sender_address = match this.sender_address with
+        let remote_port = helper.int_to_big_endian(int this.remote_port, 2)
+        let local_services = helper.int_to_little_endian(this.local_services, 8)
+        let local_address = match this.local_address with
                                 | IP address -> Array.concat [ add_prefix; [|0xffuy; 0xffuy|]; address.GetAddressBytes() ]
                                 | Raw bytes -> bytes
-        let sender_port = helper.int_to_big_endian(int this.sender_port, 2)
+        let local_port = helper.int_to_big_endian(int this.local_port, 2)
         let nonce = this.nonce
         let ua_bytes = Encoding.UTF8.GetBytes this.user_agent
         let user_agent = Array.concat [ helper.encode_varint <| uint64 ua_bytes.Length; ua_bytes ]
         let latest_block = helper.int_to_little_endian(uint64 this.latest_block, 4)
         let relay = if this.relay then [| 0x01uy |] else [| 0x00uy |]
         Array.concat [ version; services; timestamp;
-                        receiver_services; receiver_address; receiver_port;
-                        sender_services; sender_address; sender_port;
+                        remote_services; remote_address; remote_port;
+                        local_services; local_address; local_port;
                         nonce; user_agent; latest_block; relay ]
 
 type VerAckMessage = private { body: byte array } with
@@ -207,6 +206,45 @@ type PongMessage = private { nonce: byte array } with
         PongMessage.Create nonce
 
     member this.Serialize = this.nonce
+
+type FeeFilterMessage = private { feerate: uint64 } with
+    static member Command = Encoding.ASCII.GetBytes "feefilter"
+
+    static member Create (?feerate0: uint64) =
+        let feerate = defaultArg feerate0 0UL
+        { feerate = feerate }
+
+    override this.ToString (): string =
+        $"feefilter: {this.feerate}"
+
+    static member Parse (stream: Stream) =
+        let buffer8 = Array.zeroCreate<byte> 8
+        stream.ReadExactly buffer8
+        let feerate = helper.little_endian_to_int buffer8
+        FeeFilterMessage.Create feerate
+
+    member this.Serialize = helper.int_to_little_endian(this.feerate, 8)
+
+type SendCmpctMessage = private { announce: bool; version: uint64 } with
+    static member Command = Encoding.ASCII.GetBytes "sendcmpct"
+
+    static member Create (announce: bool) (version: uint64) =
+        { announce = announce; version = version }
+
+    override this.ToString (): string =
+        $"sendcmpct: {this.announce} {this.version}"
+
+    static member Parse (stream: Stream) =
+        let announce = stream.ReadByte() = 1
+        let buffer8 = Array.zeroCreate<byte> 8
+        stream.ReadExactly buffer8
+        let version = helper.little_endian_to_int buffer8
+        SendCmpctMessage.Create announce version
+
+    member this.Serialize =
+        let announce = if this.announce then [| 1uy |] else [| 0uy |]
+        let version = helper.int_to_little_endian(this.version, 8)
+        Array.concat [announce; version]
 
 type GetHeadersMessage = private { version: uint32; num_hashes: int; start_block: byte array; end_block: byte array } with
     static member Command = Encoding.ASCII.GetBytes "getheaders"
@@ -316,9 +354,9 @@ type NotFoundMessage = private { mutable data: Inventory } with
     static member Command = Encoding.ASCII.GetBytes "notfound"
 
     override this.ToString (): string =
-        let mutable output = "notfound:\n"
+        let mutable output = "notfound:"
         for data_type, identifier in List.rev this.data do
-            output <- output + $"{data_type}:{helper.bytes_to_hex identifier}\n"
+            output <- output + $"\t{data_type}:{helper.bytes_to_hex identifier}\n"
         output
 
     static member Create (?data0: Inventory) =
@@ -368,7 +406,16 @@ type GenericMessage = private { command: byte array; payload: byte array } with
     member this.Serialize = this.Payload
 
 // type Message = VersionMessage | VerAckMessage
-type Message = Version of VersionMessage | VerAck of VerAckMessage | Ping of PingMessage | Pong of PongMessage | GetHeaders of GetHeadersMessage | Headers of HeadersMessage | GetData of GetDataMessage | MerkleBlock of MerkleBlock | Tx of Tx | Inv of InvMessage | NotFound of NotFoundMessage | Message of GenericMessage
+type Message =
+    | Version of VersionMessage | VerAck of VerAckMessage
+    | Ping of PingMessage | Pong of PongMessage
+    | GetHeaders of GetHeadersMessage | Headers of HeadersMessage
+    | GetData of GetDataMessage | MerkleBlock of MerkleBlock
+    | Tx of Tx | Inv of InvMessage
+    | NotFound of NotFoundMessage
+    | FeeFilter of FeeFilterMessage
+    | SendCmpct of SendCmpctMessage
+    | Message of GenericMessage
 
 type SimpleNode = private { host: string; port: int; testnet: bool; logging: bool; stream: Stream } with
     static member Create(host: string, ?testnet0: bool, ?port0: int, ?logging0: bool) =
@@ -392,6 +439,8 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
                         | Tx m -> NetworkEnvelope.Create(Tx.Command, m.Serialize, this.testnet)
                         | Inv m -> NetworkEnvelope.Create(InvMessage.Command, m.Serialize, this.testnet)
                         | NotFound m -> NetworkEnvelope.Create(NotFoundMessage.Command, m.Serialize, this.testnet)
+                        | FeeFilter m -> NetworkEnvelope.Create(FeeFilterMessage.Command, m.Serialize, this.testnet)
+                        | SendCmpct m -> NetworkEnvelope.Create(SendCmpctMessage.Command, m.Serialize, this.testnet)
                         | Message m -> NetworkEnvelope.Create(m.Command, m.Serialize, this.testnet)
         if this.logging then
             printfn $"sending {envelope.Command}"
@@ -411,21 +460,11 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
             envelope <- this.Read
             command <- envelope.command
             if this.logging then
-                printfn "command is %s" envelope.Command
+                printfn "received command is %s" envelope.Command
             if command = VersionMessage.Command then
                 this.Send <| VerAck VerAckMessage.Create
             else if command = PingMessage.Command then
                 this.Send <| Pong (PongMessage.Create envelope.Payload)
-            else if command = InvMessage.Command then
-                if this.logging then
-                    use stream = new MemoryStream(envelope.Payload)
-                    let inv = InvMessage.Parse stream
-                    printfn "%A" inv
-            else if command = NotFoundMessage.Command then
-                if this.logging then
-                    use stream = new MemoryStream(envelope.Payload)
-                    let notfound = NotFoundMessage.Parse stream
-                    printfn "%A" notfound
             if List.exists (fun x -> x = envelope.command) messages then
                 found <- true
         use stream = new MemoryStream(envelope.Payload)
@@ -447,10 +486,28 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
             Inv (InvMessage.Parse stream)
         else if command = NotFoundMessage.Command then
             NotFound (NotFoundMessage.Parse stream)
+        else if command = FeeFilterMessage.Command then
+            FeeFilter (FeeFilterMessage.Parse stream)
+        else if command = SendCmpctMessage.Command then
+            SendCmpct (SendCmpctMessage.Parse stream)
         else
             Message (GenericMessage.Parse stream)
 
     member this.Handshake =
         let version = VersionMessage.Create this.testnet
         this.Send (Version version)
-        this.WaitFor [VerAckMessage.Command]
+        if this.testnet then
+            let ver = this.WaitFor [VerAckMessage.Command]
+            let sendcmpct = this.WaitFor [SendCmpctMessage.Command]
+            if this.logging then
+                match sendcmpct with
+                | SendCmpct m -> printfn "%A" m
+                | _ -> failwith "wrong message"
+            let feefilter = this.WaitFor [FeeFilterMessage.Command]
+            if this.logging then
+                match feefilter with
+                | FeeFilter m -> printfn "%A" m
+                | _ -> failwith "wrong message"
+            ver
+        else
+            this.WaitFor [VerAckMessage.Command]

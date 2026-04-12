@@ -126,12 +126,13 @@ type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime:
 module TxHelper =
     let cache = new Dictionary<string, Tx>()
 
-    let url = "https://blockchain.info"
-    // "https://blockstream.info/testnet/api/"
+    let url testnet = if testnet then "https://blockstream.info/testnet/api/"
+                      else "https://blockchain.info"
 
-    let fetch tx_id fresh : Tx =
+    let fetch tx_id testnet fresh : Tx =
         if fresh || not (cache.ContainsKey tx_id) then
-            let url = $"{url}/rawtx/{tx_id}?format=hex"
+            let url = if testnet then $"{url true}/tx/{tx_id}/hex"
+                      else $"{url false}/rawtx/{tx_id}?format=hex"
             let response = helper.get_async url |> Async.RunSynchronously
             let mutable raw = helper.bytes_from_hex response
             let stream = new MemoryStream(raw)
@@ -141,27 +142,27 @@ module TxHelper =
             cache.Add(tx_id, tx)
         cache.Item tx_id
 
-    let get_prev_tx (tx_in: TxIn) : Tx =
-        fetch (helper.bytes_to_hex <| tx_in.PrevTx) false
+    let get_prev_tx (tx_in: TxIn) (testnet: bool) : Tx =
+        fetch (helper.bytes_to_hex <| tx_in.PrevTx) testnet false
 
-    let get_output_value (tx_in: TxIn) : uint64 =
-        let prev_tx = get_prev_tx tx_in
+    let get_output_value (tx_in: TxIn) (testnet: bool) : uint64 =
+        let prev_tx = get_prev_tx tx_in testnet
         prev_tx.TxOuts[int tx_in.PrevIndex].Amount
 
-    let get_script_pubkey (tx_in: TxIn) =
-        let prev_tx = get_prev_tx tx_in
+    let get_script_pubkey (tx_in: TxIn) (testnet: bool) =
+        let prev_tx = get_prev_tx tx_in testnet
         prev_tx.TxOuts[int tx_in.PrevIndex].ScriptPubKey
 
-    let get_fee (tx: Tx) : uint64 =
+    let get_fee (tx: Tx) (testnet: bool) : uint64 =
         let mutable input = 0UL
         let mutable output = 0UL
         for tx_in in tx.TxIns do
-            input <- input + get_output_value tx_in
+            input <- input + get_output_value tx_in testnet
         for tx_out in tx.TxOuts do
             output <- output + tx_out.Amount
         input - output
 
-    let sig_hash (tx: Tx) (index: int) (redeem_script: script.Script option) =
+    let sig_hash (tx: Tx) (index: int) (redeem_script: script.Script option) (testnet: bool) =
         let version = helper.int_to_little_endian(uint64 tx.Version, 4)
         let num_txins = helper.encode_varint <| uint64 tx.TxIns.Length
         let mutable tx_ins = [||]
@@ -171,7 +172,7 @@ module TxHelper =
                 if i = index then
                     match redeem_script with
                     | Some redeem_script -> redeem_script
-                    | None -> get_script_pubkey tx_in
+                    | None -> get_script_pubkey tx_in testnet
                 else script.Script.Empty
             let new_in = TxIn.Create(tx_in.PrevTx, tx_in.PrevIndex, script_pubkey, tx_in.sequence)
             tx_ins <- Array.concat [ tx_ins; new_in.Serialize ]
@@ -184,9 +185,9 @@ module TxHelper =
         let s = Array.concat [ version; num_txins; tx_ins; num_txouts; tx_outs; locktime; hashtype ]
         helper.bigint_from_bytes <| helper.hash256 s
 
-    let verify_input (tx: Tx) (index: int) =
+    let verify_input (tx: Tx) (index: int) (testnet: bool) =
         let tx_in = tx.TxIns[index]
-        let script_pubkey = get_script_pubkey tx_in
+        let script_pubkey = get_script_pubkey tx_in testnet
         let redeem_script = if script_pubkey.IsScriptHash then
                                 match tx_in.ScriptSig.Program.Head with
                                     | op.Data redeem ->
@@ -196,24 +197,24 @@ module TxHelper =
                                     | _ -> failwith "verify_input: can't find redeem script"
                             else
                                 None
-        let z = sig_hash tx index redeem_script
+        let z = sig_hash tx index redeem_script testnet
         let combined_script = tx_in.ScriptSig + script_pubkey
         let verified, _ = combined_script.Evaluate z
         verified
 
-    let verify (tx: Tx) =
-        if get_fee tx < 0UL then
+    let verify (tx: Tx) (testnet: bool) =
+        if get_fee tx testnet < 0UL then
             false
         else
             let mutable verified = true
             for i in [0..tx.TxIns.Length - 1] do
                 if verified then
                     let tx_in = tx.TxIns[i]
-                    verified <- verify_input tx i
+                    verified <- verify_input tx i testnet
             verified
 
-    let sign_input (tx: Tx) (index: int) (private_key: ecc.PrivateKey) =
-        let z = sig_hash tx index None
+    let sign_input (tx: Tx) (index: int) (private_key: ecc.PrivateKey) (testnet: bool) =
+        let z = sig_hash tx index None testnet
         let der = (private_key.Sign z).Der
         let sigb = Array.concat [ der; helper.int_to_big_endian(int SIGHASH_ALL, 1) ]
         let secb = private_key.Point.Sec ()
@@ -225,4 +226,4 @@ module TxHelper =
         let tx_in = TxIn.Create(prev_in.PrevTx, prev_in.PrevIndex, script_sig)
         tx_ins[index] <- tx_in
         let new_tx = Tx.Create(tx.Version, tx_ins, tx.TxOuts, tx.Locktime)
-        verify_input new_tx index, new_tx
+        verify_input new_tx index testnet, new_tx

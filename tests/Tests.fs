@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Net
 open System.Text
 open Xunit
 open Library
@@ -285,16 +286,16 @@ let ``test transaction id`` () =
 
 [<Fact>]
 let ``test transaction fetch`` () =
-    let tx = TxHelper.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" false
+    let tx = TxHelper.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" false false
     Assert.Equal(tx.Id, "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da")
 
 // [<Fact>]
 // let ``test transaction fee`` () =
-//     let tx1 = TxHelper.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" true
-//     Assert.True <| (TxHelper.get_fee tx1 = 0UL)
+//     let tx1 = TxHelper.fetch "b6f6991d03df0e2e04dafffcd6bc418aac66049e2cd74b80f14ac86db1e3f0da" false true
+//     Assert.True <| (TxHelper.get_fee tx1 false = 0UL)
 //     // pizza
-//     let tx2 = TxHelper.fetch "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d" false
-//     Assert.True <| (TxHelper.get_fee tx2 = 99000000UL)
+//     let tx2 = TxHelper.fetch "a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d" false false
+//     Assert.True <| (TxHelper.get_fee tx2 false = 99000000UL)
 
 [<Fact>]
 let ``test big endian`` () =
@@ -456,7 +457,7 @@ let ``test fee`` () =
     let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
     use stream = new MemoryStream(raw_tx)
     let tx = Tx.Parse stream
-    Assert.True (TxHelper.get_fee tx > 0UL)
+    Assert.True (TxHelper.get_fee tx false > 0UL)
 
 [<Fact>]
 let ``test signature`` () =
@@ -472,7 +473,7 @@ let ``test sighash`` () =
     let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
     use stream = new MemoryStream(raw_tx)
     let tx = Tx.Parse stream
-    let sighash = TxHelper.sig_hash tx 0 None
+    let sighash = TxHelper.sig_hash tx 0 None false
     let result = bigint_from_hex "27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6"
     Assert.Equal(sighash, result)
 
@@ -481,14 +482,14 @@ let ``test sighash`` () =
 //     let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
 //     use stream = new MemoryStream(raw_tx)
 //     let tx = Tx.Parse stream
-//     Assert.True <| TxHelper.verify_input tx 0
+//     Assert.True <| TxHelper.verify_input tx 0 false
 
 // [<Fact>]
 // let ``test verify`` () =
 //     let raw_tx = bytes_from_hex "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
 //     use stream = new MemoryStream(raw_tx)
 //     let tx = Tx.Parse stream
-//     Assert.True <| TxHelper.verify tx
+//     Assert.True <| TxHelper.verify tx false
 
 [<Fact>]
 let ``test transaction creation`` () =
@@ -509,7 +510,7 @@ let ``test transaction creation`` () =
 
 // [<Fact>]
 // let ``test transaction signing`` () =
-    // let z = TxHelper.sig_hash tx 0 None
+    // let z = TxHelper.sig_hash tx 0 None false
     // let private_key = PrivateKey.Create 8676309
     // let der = (private_key.Sign z).Der
     // let sigb = Array.concat [ der; int_to_big_endian(int SIGHASH_ALL, 1) ]
@@ -536,18 +537,18 @@ let ``test new transaction creation`` () =
 //     let change_amount = uint64(0.009*100000000.0)
 //     let change_h160 = decode_base58_checksum "mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2"
 //     printfn $"change_h160={bytes_to_hex change_h160}"
-//     let change_script = TxHelper.p2pkh_script change_h160
+//     let change_script = p2pkh_script change_h160
 //     let change_output = TxOut.Create(change_amount, change_script)
 //     let target_amount = uint64(0.01*100000000.0)
 //     let target_h160 = decode_base58_checksum "miKegze5FQNCnGw6PKyqUbYUeBa4x2hFeM"
 //     printfn $"target_h160={bytes_to_hex target_h160}"
-//     let target_script = TxHelper.p2pkh_script target_h160
+//     let target_script = p2pkh_script target_h160
 //     let target_output = TxOut.Create(target_amount, target_script)
 //     // let tx = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
 //     let tx = Tx.Create(1u, [| tx_in |], [| target_output; change_output |], 0u)
 //     let secret = 8675309
 //     let priv = PrivateKey.Create secret
-//     let signed, newtx = TxHelper.sign_input tx 0 priv
+//     let signed, newtx = TxHelper.sign_input tx 0 priv false
 //     let serialized = bytes_to_hex newtx.Serialize
 //     printfn $"signed\n{serialized}"
 //     let bytes = "01000000011c5fb4a35c40647bcacfeffcb8686f1e9925774c07a1dd26f6551f67bcc4a175010000006b483045022100a08ebb92422b3599a2d2fcdaa11f8f807a66ccf33e7f4a9ff0a3c51f1b1ec5dd02205ed21dfede5925362b8d9833e908646c54be7ac6664e31650159e8f69b6ca539012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff0240420f00000000001976a9141ec51b3654c1f1d0f4929d11a1f702937eaf50c888ac9fbb0d00000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac00000000"
@@ -737,9 +738,10 @@ let ``test network envelope serialization`` () =
 
 [<Fact>]
 let ``test version message serialization`` () =
+    let address = IP <| IPAddress.Parse "0.0.0.0"
     let nonce = Array.zeroCreate 8
     let user_agent = "/programmingbitcoin:0.1/"
-    let v = VersionMessage.Create(false, Some 0UL, Some nonce, user_agent)
+    let v = VersionMessage.Create(false, 70015u, 0UL, Some 0UL, 0UL, address, 8333us, 0UL, address, 8333us, Some nonce, user_agent)
     Assert.Equal("7f11010000000000000000000000000000000000000000000000000000000000000000000000ffff00000000208d000000000000000000000000000000000000ffff00000000208d0000000000000000182f70726f6772616d6d696e67626974636f696e3a302e312f0000000000",
         bytes_to_hex v.Serialize)
 
@@ -1142,7 +1144,16 @@ let ``test data data message serialization`` () =
 
 [<Fact>]
 let ``test handshake`` () =
-    let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false)
+    // mainnet seed: seed.bitcoin.sipa.be
+    // let node = SimpleNode.Create("mainnet.programmingbitcoin.com", false)
+    // let node = SimpleNode.Create("90.143.133.202", false, 8333, true)
     // testnet doesn't work
-    // let node = SimpleNode.Create("testnet.programmingbitcoin.com", true)
+    // let node = SimpleNode.Create("testnet.programmingbitcoin.com", true, 18333, true)
+    // testnet seed: testnet-seed.bitcoin.jonasschnelli.ch
+    let node = SimpleNode.Create("18.118.231.3", true, 18333, true)
+    // let node = SimpleNode.Create("85.203.53.89", true, 18333, true)
+    // let node = SimpleNode.Create("91.105.60.56", true, 18333, true)
+    // connection refused
+    // let node = SimpleNode.Create("51.15.244.111", true, 18333, true)
+    // let node = SimpleNode.Create("node201.fmt.mempool.space", true, 18333, true)
     node.Handshake
