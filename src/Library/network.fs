@@ -243,16 +243,99 @@ type HeadersMessage = private { blocks: block.Block[] } with
         HeadersMessage.Create <| Array.ofList (List.rev blocks)
 
 type DataType =
-| TX = 1
-| BLOCK = 2
-| FILTERED_BLOCK = 3
-| COMPACT_BLOCK = 4
+| MSG_TX = 1
+| MSG_BLOCK = 2
+| MSG_FILTERED_BLOCK = 3
+| MSG_COMPACT_BLOCK = 4
 
-type GetDataMessage = private { mutable data: (DataType * byte array) list } with
+type Inventory = (DataType * byte array) list
+
+type GetDataMessage = private { mutable data: Inventory } with
     static member Command = Encoding.ASCII.GetBytes "getdata"
 
-    static member Create =
-        { data = [] }
+    override this.ToString (): string =
+        let mutable output = "getdata:\n"
+        for data_type, identifier in List.rev this.data do
+            output <- output + $"{data_type}:{helper.bytes_to_hex identifier}\n"
+        output
+
+    static member Create (?data0: Inventory) =
+        let data = defaultArg data0 []
+        { data = data }
+
+    member this.AddData (data_type: DataType) (identifier: byte array) =
+        this.data <- (data_type, identifier) :: this.data
+
+    member this.Serialize =
+        let mutable result = []
+        let len = helper.encode_varint <| uint64 this.data.Length
+        result <- len :: result
+        for data_type, identifier in List.rev this.data do
+            result <- helper.int_to_little_endian(uint64 data_type, 4) :: result
+            result <- Array.rev identifier :: result
+        Array.concat <| List.rev result
+
+type InvMessage = private { mutable data: Inventory } with
+    static member Command = Encoding.ASCII.GetBytes "inv"
+
+    override this.ToString (): string =
+        let mutable output = "inv:\n"
+        for data_type, identifier in List.rev this.data do
+            output <- output + $"{data_type}:{helper.bytes_to_hex identifier}\n"
+        output
+
+    static member Create (?data0: Inventory) =
+        let data = defaultArg data0 []
+        { data = data }
+
+    static member Parse (stream: Stream) =
+        let mutable data = []
+        let count = int <| helper.read_varint stream
+        let buffer4 = Array.zeroCreate<byte> 4
+        let buffer32 = Array.zeroCreate<byte> 32
+        for _ in [1..count] do
+            stream.ReadExactly buffer4
+            let data_type = int32 <| helper.little_endian_to_int buffer4
+            stream.ReadExactly buffer32
+            data <- (enum<DataType> data_type, Array.rev buffer32) :: data
+        InvMessage.Create data
+
+    member this.AddData (data_type: DataType) (identifier: byte array) =
+        this.data <- (data_type, identifier) :: this.data
+
+    member this.Serialize =
+        let mutable result = []
+        let len = helper.encode_varint <| uint64 this.data.Length
+        result <- len :: result
+        for data_type, identifier in List.rev this.data do
+            result <- helper.int_to_little_endian(uint64 data_type, 4) :: result
+            result <- Array.rev identifier :: result
+        Array.concat <| List.rev result
+
+type NotFoundMessage = private { mutable data: Inventory } with
+    static member Command = Encoding.ASCII.GetBytes "notfound"
+
+    override this.ToString (): string =
+        let mutable output = "notfound:\n"
+        for data_type, identifier in List.rev this.data do
+            output <- output + $"{data_type}:{helper.bytes_to_hex identifier}\n"
+        output
+
+    static member Create (?data0: Inventory) =
+        let data = defaultArg data0 []
+        { data = data }
+
+    static member Parse (stream: Stream) =
+        let mutable data = []
+        let count = int <| helper.read_varint stream
+        let buffer4 = Array.zeroCreate<byte> 4
+        let buffer32 = Array.zeroCreate<byte> 32
+        for _ in [1..count] do
+            stream.ReadExactly buffer4
+            let data_type = int32 <| helper.little_endian_to_int buffer4
+            stream.ReadExactly buffer32
+            data <- (enum<DataType> data_type, Array.rev buffer32) :: data
+        NotFoundMessage.Create data
 
     member this.AddData (data_type: DataType) (identifier: byte array) =
         this.data <- (data_type, identifier) :: this.data
@@ -309,7 +392,7 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
                         | Tx m -> NetworkEnvelope.Create(Tx.Command, m.Serialize, this.testnet)
                         | Message m -> NetworkEnvelope.Create(m.Command, m.Serialize, this.testnet)
         if this.logging then
-            printfn $"sending {envelope}"
+            printfn $"sending {envelope.Command}"
         this.stream.Write envelope.Serialize
 
     member this.Read: NetworkEnvelope =
@@ -325,10 +408,22 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
         while not found do
             envelope <- this.Read
             command <- envelope.command
+            if this.logging then
+                printfn "command is %s" envelope.Command
             if command = VersionMessage.Command then
                 this.Send <| VerAck VerAckMessage.Create
             else if command = PingMessage.Command then
                 this.Send <| Pong (PongMessage.Create envelope.Payload)
+            else if command = InvMessage.Command then
+                if this.logging then
+                    use stream = new MemoryStream(envelope.Payload)
+                    let inv = InvMessage.Parse stream
+                    printfn "%A" inv
+            else if command = NotFoundMessage.Command then
+                if this.logging then
+                    use stream = new MemoryStream(envelope.Payload)
+                    let notfound = NotFoundMessage.Parse stream
+                    printfn "%A" notfound
             if List.exists (fun x -> x = envelope.command) messages then
                 found <- true
         use stream = new MemoryStream(envelope.Payload)
@@ -350,6 +445,6 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
             Message (GenericMessage.Parse stream)
 
     member this.Handshake =
-        let version = VersionMessage.Create(this.testnet)
+        let version = VersionMessage.Create this.testnet
         this.Send (Version version)
         this.WaitFor [VerAckMessage.Command]
