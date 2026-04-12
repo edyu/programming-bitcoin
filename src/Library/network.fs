@@ -368,7 +368,7 @@ type GenericMessage = private { command: byte array; payload: byte array } with
     member this.Serialize = this.Payload
 
 // type Message = VersionMessage | VerAckMessage
-type Message = Version of VersionMessage | VerAck of VerAckMessage | Ping of PingMessage | Pong of PongMessage | GetHeaders of GetHeadersMessage | Headers of HeadersMessage | GetData of GetDataMessage | MerkleBlock of MerkleBlock | Tx of Tx | Message of GenericMessage
+type Message = Version of VersionMessage | VerAck of VerAckMessage | Ping of PingMessage | Pong of PongMessage | GetHeaders of GetHeadersMessage | Headers of HeadersMessage | GetData of GetDataMessage | MerkleBlock of MerkleBlock | Tx of Tx | Inv of InvMessage | NotFound of NotFoundMessage | Message of GenericMessage
 
 type SimpleNode = private { host: string; port: int; testnet: bool; logging: bool; stream: Stream } with
     static member Create(host: string, ?testnet0: bool, ?port0: int, ?logging0: bool) =
@@ -390,6 +390,8 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
                         | GetData m -> NetworkEnvelope.Create(GetDataMessage.Command, m.Serialize, this.testnet)
                         | MerkleBlock m -> NetworkEnvelope.Create(MerkleBlock.Command, [||], this.testnet)
                         | Tx m -> NetworkEnvelope.Create(Tx.Command, m.Serialize, this.testnet)
+                        | Inv m -> NetworkEnvelope.Create(InvMessage.Command, m.Serialize, this.testnet)
+                        | NotFound m -> NetworkEnvelope.Create(NotFoundMessage.Command, m.Serialize, this.testnet)
                         | Message m -> NetworkEnvelope.Create(m.Command, m.Serialize, this.testnet)
         if this.logging then
             printfn $"sending {envelope.Command}"
@@ -398,7 +400,7 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
     member this.Read: NetworkEnvelope =
         let envelope = NetworkEnvelope.Parse(this.stream, this.testnet)
         if this.logging then
-            printfn $"receiving {envelope}"
+            printfn $"receiving {envelope.Command}"
         envelope
 
     member this.WaitFor (messages: byte array list) =
@@ -441,6 +443,10 @@ type SimpleNode = private { host: string; port: int; testnet: bool; logging: boo
             MerkleBlock (MerkleBlock.Parse stream)
         else if command = Tx.Command then
             Tx (Tx.Parse stream)
+        else if command = InvMessage.Command then
+            Inv (InvMessage.Parse stream)
+        else if command = NotFoundMessage.Command then
+            NotFound (NotFoundMessage.Parse stream)
         else
             Message (GenericMessage.Parse stream)
 

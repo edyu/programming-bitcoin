@@ -361,17 +361,19 @@ let try_network testnet last_block_hex target_address =
     let secret = little_endian_to_int(hash256_string "Jimmy Song")
     let private_key = PrivateKey.Create secret
     let addr = private_key.Point.Address(true, testnet)
+    printfn "addr = %s" addr
     let h160 = decode_base58_checksum addr
     let target_h160 = decode_base58_checksum target_address
     let target_script = p2pkh_script target_h160
-    let fee = 5000
+    let fee = 5000UL
     // connect to network
     let node = if testnet then SimpleNode.Create("testnet.programmingbitcoin.com", true)
-               else SimpleNode.Create("mainnet.programmingbitcoin.com", false)
+               else SimpleNode.Create("mainnet.programmingbitcoin.com", false, 8333, true)
     // create a bloom filter of size 30 and 5 functions with a stupid tweak
     let bf = BloomFilter.Create(30, 5, 90210u)
     // add h160 to bloom filter
     bf.Add h160
+    bf.Add target_h160
     // complete the handshake
     let _ = node.Handshake
     // load the bloom filter with filterload command
@@ -399,37 +401,71 @@ let try_network testnet last_block_hex target_address =
                 failwith "chain broken"
             // add a new item to the getdata message
             getdata.AddData DataType.MSG_FILTERED_BLOCK b.hash
-            getdata.AddData DataType.MSG_TX b.hash
             last_block <- b.hash
     | _ -> failwith "wrong headers message"
     // send the getdata message
+    if not testnet then
+        getdata.AddData DataType.MSG_TX (bytes_from_hex "950823ccfae573e7e2aa21e4a45b1b3c94e3b383cb9e0a3cfd7f533ea2c64c43")
     node.Send (GetData getdata)
     // initialize prev_tx, prev_index and prev_amount to zero values
     let mutable prev_tx = [||]
-    let mutable prev_index = 0
+    let mutable prev_index = 0u
     let mutable prev_amount = 0UL
-    let mutable found = false
-    while Array.isEmpty prev_tx do
+    let mutable isdone = false
+    while Array.isEmpty prev_tx && isdone = false do
         // wait for merkleblock or tx commands
-        let message = node.WaitFor [MerkleBlock.Command; Tx.Command]
+        let message = node.WaitFor [MerkleBlock.Command; Tx.Command; NotFoundMessage.Command]
         match message with
         | MerkleBlock m ->
             printfn "got merkle block %A" m
             // check the merkleblock is valid
             if not m.is_valid then
                 failwith "invalid merkle proof"
+            else
+                let getdata = GetDataMessage.Create ()
+                for h in m.Hashes do
+                    getdata.AddData DataType.MSG_TX h
+                node.Send (GetData getdata)
+        | NotFound m ->
+            printfn "%A" m
+            isdone <- true
         | Tx m ->
             printfn "got tx message %A" m
             for i, tx_out in Array.indexed m.TxOuts do
                 if tx_out.ScriptPubKey.Address true = addr then
                     // we found our utxo
                     prev_tx <- m.hash
-                    prev_index <- i
+                    prev_index <- uint32 <| i
                     prev_amount <- tx_out.Amount
                     printfn $"found {m.Id}:{i}"
+                    isdone <- true
                 else
                     printfn $"not found {m.Id}"
         | _ -> failwith "wrong merkleblock/tx message"
+    if not (Array.isEmpty prev_tx) then
+        // create the TxIn
+        let tx_in = TxIn.Create(prev_tx, prev_index)
+        // calculate the output amount
+        let output_amount = prev_amount - fee
+        // create a new TxOut to the target script with the output amount
+        let tx_out = TxOut.Create(output_amount, target_script)
+        // create a new transaction with the one input and one output
+        let tx_obj = Tx.Create(1u, [|tx_in|], [|tx_out|], 0u, testnet)
+        let ok = TxHelper.sign_input tx_obj 0 private_key
+        printfn "transaction signed: %A" ok
+        printfn "%s" (bytes_to_hex tx_obj.Serialize)
+        node.Send (Tx tx_obj)
+        // wait a second
+        System.Threading.Thread.Sleep 1000
+        let getdata = GetDataMessage.Create ()
+        getdata.AddData DataType.MSG_TX tx_obj.hash
+        node.Send (GetData getdata)
+        // wait for a Tx response
+        match node.WaitFor [Tx.Command] with
+        | Tx received_tx ->
+            if received_tx.Id = tx_obj.Id then
+                printfn "success"
+        | _ -> failwith "wrong message"
 
 let test_mainnet () =
     // mainnet
@@ -438,7 +474,8 @@ let test_mainnet () =
     // 944536
     // let last_block_hex = "00000000000000000000b80cde5169c78b8da63cee64d4472044629a61662be7"
 
-    let target_address = "1MWP6sgVVwm4NfFe3RHQmQUpsF2K1jLcZ7"
+    // let target_address = "1MWP6sgVVwm4NfFe3RHQmQUpsF2K1jLcZ7"
+    let target_address = "1MZBude8bq6MbEoNkie2v1biYXHQEjQKPj"
     try_network false last_block_hex target_address
 
 let test_testnet () =
