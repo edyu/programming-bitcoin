@@ -499,11 +499,11 @@ let ``test transaction creation`` () =
     let tx_out = []
     let change_amount = 33000000UL
     let change_h160 = decode_base58_checksum "mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2"
-    let change_script = p2pkh_script change_h160
+    let change_script = Script.p2pkh_script change_h160
     let change_output = TxOut.Create(change_amount, change_script)
     let target_amount = 10000000UL
     let target_h160 = decode_base58_checksum "mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf"
-    let target_script = p2pkh_script target_h160
+    let target_script = Script.p2pkh_script target_h160
     let target_output = TxOut.Create(target_amount, target_script)
     let tx = Tx.Create(1u, [| tx_in |], [| change_output; target_output |], 0u)
     Assert.Equal(tx.Id, "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11")

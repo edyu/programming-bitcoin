@@ -1,5 +1,7 @@
 module script
 
+open System.IO
+
 type Script = private { program: op.Cmd list } with
     member this.Program = this.program
 
@@ -82,6 +84,18 @@ type Script = private { program: op.Cmd list } with
                 | op.Code op.OP_HASH160 :: op.Data h160 :: op.Code op.OP_EQUAL :: [] when h160.Length = 20 -> true
                 | _ -> false
 
+    member this.IsWitnessPublicKeyHash =
+        if this.program.Length <> 2 then false
+        else match this.program with
+                | op.Code op.OP_0 :: op.Data h160 :: [] when h160.Length = 20 -> true
+                | _ -> false
+
+    member this.IsWitnessScriptHash =
+        if this.program.Length <> 2 then false
+        else match this.program with
+                | op.Code op.OP_0 :: op.Data h256 :: [] when h256.Length = 32 -> true
+                | _ -> false
+
     member this.Address (?testnet0: bool) =
         let testnet = defaultArg testnet0 false
         if this.IsPublicKeyHash then
@@ -96,7 +110,21 @@ type Script = private { program: op.Cmd list } with
             Script.h160_to_p2sh_address(h160, testnet)
         else failwith "can't find any address hash"
 
-    member this.Evaluate z =
+    static member p2pkh_script (h160: byte array) =
+        Script.Create [ op.Code op.OP_DUP; op.Code op.OP_HASH160; op.Data h160; op.Code op.OP_EQUALVERIFY; op.Code op.OP_CHECKSIG ]
+
+    static member p2sh_script (h160: byte array) =
+        Script.Create [ op.Code op.OP_HASH160; op.Data h160; op.Code op.OP_EQUAL ]
+
+    // p2wpkh ScriptPubKey
+    static member p2wpkh_script (h160: byte array) =
+        Script.Create [ op.Code op.OP_0; op.Data h160 ]
+
+    static member p2wsh_script (h256: byte array) =
+        Script.Create [ op.Code op.OP_0; op.Data h256 ]
+
+    member this.Evaluate(z, ?witness0: byte array list) =
+        let witness = defaultArg witness0 []
         let mutable stack = op.Stack.Empty
         let mutable altstack = op.Stack.Empty
         let mutable ok = true
@@ -151,10 +179,34 @@ type Script = private { program: op.Cmd list } with
                             stack <- newstack
                             if ok then
                                 let redeem_script = Array.concat [ helper.encode_varint <| uint64 bytes.Length; bytes ]
-                                use stream = new System.IO.MemoryStream(redeem_script)
+                                use stream = new MemoryStream(redeem_script)
                                 let new_script = Script.Parse stream
                                 cmds <- cmds @ new_script.program
                 | _ -> () // do nothing
+                match stack with
+                // p2wpkh
+                | h160 :: zero :: [] when op.decode_num zero = 0 && h160.Length = 20 ->
+                    match witness with
+                    | pubkey :: signature :: [] ->
+                        cmds <- cmds @ [ op.Data signature; op.Data pubkey ]
+                        cmds <- cmds @ Script.p2pkh_script(h160).program
+                    | _ -> failwith "wrong format in p2wpkh"
+                    stack <- []
+                // p2wsh
+                | h256 :: zero :: [] when op.decode_num zero = 0 && h256.Length = 32 ->
+                    stack <- []
+                    let tail = List.rev [ for x in witness.Tail -> op.Data x ]
+                    cmds <- cmds @ tail
+                    let raw_script = witness.Head
+                    let s256 = helper.sha256 raw_script
+                    if h256 <> s256 then
+                        printfn $"bad sha256 {helper.bytes_to_hex h256} vs {helper.bytes_to_hex s256}"
+                        ok <- false
+                    let witness_bytes = Array.concat [ helper.encode_varint <| uint64 raw_script.Length; raw_script ]
+                    use stream = new MemoryStream(witness_bytes)
+                    let witness_script = Script.Parse stream
+                    cmds <- cmds @ witness_script.program
+                | _ -> ()  // do nothing
         if not ok || stack.IsEmpty then
             false, stack
         else if not stack.IsEmpty && op.decode_num stack.Head = 0 then
@@ -171,9 +223,3 @@ type Script = private { program: op.Cmd list } with
         let testnet = defaultArg testnet0 false
         let prefix = if testnet then [| 0xc4uy |] else [| 0x05uy |]
         helper.base58_checksum <| Array.concat [ prefix; h160 ]
-
-let p2pkh_script (h160: byte[]) =
-    Script.Create [ op.Code op.OP_DUP; op.Code op.OP_HASH160; op.Data h160; op.Code op.OP_EQUALVERIFY; op.Code op.OP_CHECKSIG ]
-
-let p2sh_script (h160: byte[]) =
-    Script.Create [ op.Code op.OP_HASH160; op.Data h160; op.Code op.OP_EQUAL ]
