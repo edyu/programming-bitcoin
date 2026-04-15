@@ -63,26 +63,26 @@ type Signature = { r: bigint; s: bigint } with
         use stream = new System.IO.MemoryStream(sig_bin)
         let prefix = stream.ReadByte()
         if prefix <> 0x30 then
-            failwith "bad signature"
+            failwith $"bad signature prefix {prefix}"
         let length = stream.ReadByte()
         if length + 2 <> sig_bin.Length then
-            failwith "bad signature length"
+            failwith $"bad signature length {length} + 2 != {sig_bin.Length}"
         let marker = stream.ReadByte()
         if marker <> 0x02 then
-            failwith "bad signature"
+            failwith $"bad signature marker {marker}"
         let rlength = stream.ReadByte()
         let rbin = Array.zeroCreate<byte> rlength
         let bytesRead = stream.ReadExactly rbin
         let r = helper.bigint_from_bytes rbin
         let marker = stream.ReadByte()
         if marker <> 0x02 then
-            failwith "bad signature"
+            failwith $"bad signature marker {marker}"
         let slength = stream.ReadByte()
         let sbin = Array.zeroCreate<byte> slength
         let bytesRead = stream.ReadExactly sbin
         let s = helper.bigint_from_bytes sbin
         if rlength + slength + 6 <> sig_bin.Length then
-            failwith "signature too long"
+            failwith $"signature too long {rlength + slength} + 6 != {sig_bin.Length}"
         { r = r; s = s }
 
 type S256Point = private { x: S256Field option; y: S256Field option; a: S256Field; b: S256Field } with

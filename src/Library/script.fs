@@ -188,8 +188,7 @@ type Script = private { program: op.Cmd list } with
                 | h160 :: zero :: [] when op.decode_num zero = 0 && h160.Length = 20 ->
                     match witness with
                     | pubkey :: signature :: [] ->
-                        cmds <- cmds @ [ op.Data signature; op.Data pubkey ]
-                        cmds <- cmds @ Script.p2pkh_script(h160).program
+                        cmds <- cmds @ [ op.Data signature; op.Data pubkey ] @ Script.p2pkh_script(h160).program
                     | _ -> failwith "wrong format in p2wpkh"
                     stack <- []
                 // p2wsh

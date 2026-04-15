@@ -256,7 +256,7 @@ module TxHelper =
                                             | _ -> failwith "cannot find h160"
                                 script.Script.p2pkh_script(hash).Serialize
         let txin_value = helper.int_to_little_endian(get_output_value tx_in testnet, 8)
-        let txin_seq = helper.int_to_little_endian(uint64 tx_in.Sequence, 8)
+        let txin_seq = helper.int_to_little_endian(uint64 tx_in.Sequence, 4)
         let outputs = hash_outputs tx
         let locktime = helper.int_to_little_endian(uint64 tx.Locktime, 4)
         let hashtype = helper.int_to_little_endian(uint64 SIGHASH_ALL, 4)
@@ -290,7 +290,7 @@ module TxHelper =
         let tx_in = tx.TxIns[index]
         let script_pubkey = get_script_pubkey tx_in testnet
         let redeem_script = if script_pubkey.IsScriptHash then // check p2sh
-                                match tx_in.ScriptSig.Program.Head with
+                                match List.last tx_in.ScriptSig.Program with
                                     | op.Data redeem ->
                                         let raw_redeem = Array.concat [ helper.encode_varint <| uint64 redeem.Length; redeem ]
                                         use stream = new MemoryStream(raw_redeem)
@@ -301,28 +301,32 @@ module TxHelper =
         // redeem script might be p2wpkh or p2wsh
         let z, witness = match redeem_script with
                             | Some redeem ->
-                                // p2sh-p2wpkh
                                 if redeem.IsWitnessPublicKeyHash then
+                                    // p2sh-p2wpkh
                                     sig_hash_bip143 tx index redeem_script None testnet, tx_in.Witness
                                 else if redeem.IsWitnessScriptHash then
+                                    // p2wsh
                                     let cmd = tx_in.Witness.Head
                                     let raw_witness = Array.concat [ helper.encode_varint <| uint64 cmd.Length; cmd ]
                                     use stream = new MemoryStream(raw_witness)
                                     let witness_script = script.Script.Parse stream
                                     sig_hash_bip143 tx index None (Some witness_script) testnet, tx_in.Witness
                                 else
+                                    // p2sh
                                     sig_hash tx index redeem_script testnet, []
                             | None ->
-                                // p2wpkh
                                 if script_pubkey.IsWitnessPublicKeyHash then
+                                    // p2wpkh
                                     sig_hash_bip143 tx index None None testnet, tx_in.Witness
                                 else if script_pubkey.IsWitnessScriptHash then
+                                    // p2wsh
                                     let cmd = tx_in.Witness.Head
                                     let raw_witness = Array.concat [ helper.encode_varint <| uint64 cmd.Length; cmd ]
                                     use stream = new MemoryStream(raw_witness)
                                     let witness_script = script.Script.Parse stream
                                     sig_hash_bip143 tx index None (Some witness_script) testnet, tx_in.Witness
                                 else
+                                    // p2pkh
                                     sig_hash tx index None testnet, []
         let combined_script = tx_in.ScriptSig + script_pubkey
         let verified, _ = combined_script.Evaluate(z, witness)

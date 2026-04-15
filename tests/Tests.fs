@@ -321,10 +321,30 @@ let ``test verify p2pkh`` () =
     let tx = TxHelper.fetch "5418099cc755cb9dd3ebc6cf1a7888ad53a1a3beb5a025bce89eb1bf7f1650a2" true false
     Assert.True(TxHelper.verify tx true)
  
-// [<Fact>]
-// let ``test verify p2sh`` () =
-//     let tx = TxHelper.fetch "46df1a9484d0a81d03ce0ee543ab6e1a23ed06175c104a178268fad381216c2b" false false
-//     Assert.True(TxHelper.verify tx false)
+[<Fact>]
+let ``test verify p2sh`` () =
+    let tx = TxHelper.fetch "46df1a9484d0a81d03ce0ee543ab6e1a23ed06175c104a178268fad381216c2b" false false
+    Assert.True(TxHelper.verify tx false)
+
+[<Fact>]
+let ``test verify p2wpkh`` () =
+    let tx = TxHelper.fetch "d869f854e1f8788bcff294cc83b280942a8c728de71eb709a2c29d10bfe21b7c" true false
+    Assert.True(TxHelper.verify tx true)
+
+[<Fact>]
+let ``test verify p2sh-p2wpkh`` () =
+    let tx = TxHelper.fetch "c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a" false false
+    Assert.True(TxHelper.verify tx false)
+
+[<Fact>]
+let ``test verify p2wsh`` () =
+    let tx = TxHelper.fetch "78457666f82c28aa37b74b506745a7c7684dc7842a52a457b09f09446721e11c" true false
+    Assert.True(TxHelper.verify tx true)
+
+[<Fact>]
+let ``test verify p2sh-p2wsh`` () =
+    let tx = TxHelper.fetch "954f43dbb30ad8024981c07d1f5eb6c9fd461e2cf1760dd1283f052af746fc88" true false
+    Assert.True(TxHelper.verify tx true)
 
 [<Fact>]
 let ``test transaction parsing and serialization`` () =
