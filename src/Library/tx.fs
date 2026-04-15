@@ -22,8 +22,10 @@ type TxIn = private { prev_tx: byte[]; prev_index: uint32; script_sig: script.Sc
         let script = this.ScriptSig.Serialize
         let sequence = helper.int_to_little_endian(uint64 this.sequence, 4)
         Array.concat [ Array.rev this.prev_tx; prev_index; script; sequence ]
+
     override this.ToString (): string =
         $"{helper.bytes_to_hex this.prev_tx}:{this.prev_index}"
+
     static member Create(prev_tx, prev_index, ?script_sig0, ?sequence0) =
         let script_sig = defaultArg script_sig0 script.Script.Empty
         let sequence = defaultArg sequence0 0xffffffffu
@@ -31,12 +33,12 @@ type TxIn = private { prev_tx: byte[]; prev_index: uint32; script_sig: script.Sc
 
     static member Parse (stream: Stream) =
         let prev_tx = Array.zeroCreate<byte> 32
-        let mutable bytesRead = stream.Read(prev_tx, 0, 32)
+        stream.ReadExactly prev_tx
         let buffer4 = Array.zeroCreate<byte> 4
-        bytesRead <- stream.Read(buffer4, 0, 4)
+        stream.ReadExactly buffer4
         let prev_index = uint32 <| helper.little_endian_to_int buffer4
         let script = script.Script.Parse stream
-        bytesRead <- stream.Read(buffer4, 0, 4)
+        stream.ReadExactly buffer4
         let sequence = uint32 <| helper.little_endian_to_int buffer4
         TxIn.Create(Array.rev prev_tx, prev_index, script, sequence)
 
@@ -47,13 +49,16 @@ type TxOut = private { amount: uint64; script_pubkey: script.Script } with
         let amount = helper.int_to_little_endian(this.amount, 8)
         let script = this.script_pubkey.Serialize
         Array.concat [ amount; script ]
+
     override this.ToString() =
         $"{this.amount}:{this.script_pubkey.ToString()}"
+
     static member Create (amount: uint64, script_pubkey: script.Script) =
         { amount = amount; script_pubkey = script_pubkey }
+
     static member Parse (stream: Stream) =
         let buffer8 = Array.zeroCreate<byte> 8
-        let bytesRead = stream.Read(buffer8, 0, 8)
+        stream.ReadExactly buffer8
         let amount = helper.little_endian_to_int buffer8
         let script = script.Script.Parse stream
         TxOut.Create(amount, script)
@@ -182,7 +187,8 @@ type Tx = private { version: uint32; tx_ins: TxIn[]; tx_outs: TxOut[]; locktime:
     member this.CoinbaseHeight =
         if not this.IsCoinbase then None
         else match this.TxIns[0].ScriptSig.Program[0] with
-                | op.Data bytes -> Some <| helper.little_endian_to_int bytes
+                | op.Data bytes ->
+                    Some <| helper.little_endian_to_int bytes
                 | _ -> None
 
 module TxHelper =
@@ -346,14 +352,12 @@ module TxHelper =
     let sign_input (tx: Tx) (index: int) (private_key: ecc.PrivateKey) (testnet: bool) =
         let z = sig_hash tx index None testnet
         let der = (private_key.Sign z).Der
-        let sigb = Array.concat [ der; helper.int_to_big_endian(int SIGHASH_ALL, 1) ]
+        let sigb = Array.concat [ der; [| byte SIGHASH_ALL |] ]
         let secb = private_key.Point.Sec ()
-        let secba = Array.concat [ helper.encode_varint <| uint64 secb.Length + 2UL; [| byte secb.Length |]; secb; [| 0xacuy |] ]
-        let sigba = Array.concat [ helper.encode_varint <| uint64 sigb.Length + 1UL; [| byte sigb.Length |]; sigb ]
-        let script_sig = script.Script.Create [ op.Data sigba; op.Data secba ]
+        let script_sig = script.Script.Create [ op.Data sigb; op.Data secb ]
         let mutable tx_ins = tx.TxIns
         let prev_in = tx_ins[index]
         let tx_in = TxIn.Create(prev_in.PrevTx, prev_in.PrevIndex, script_sig)
         tx_ins[index] <- tx_in
-        let new_tx = Tx.Create(tx.Version, tx_ins, tx.TxOuts, tx.Locktime)
+        let new_tx = Tx.Create(tx.Version, tx_ins, tx.TxOuts, tx.Locktime, testnet, tx.SegWit)
         verify_input new_tx index testnet, new_tx

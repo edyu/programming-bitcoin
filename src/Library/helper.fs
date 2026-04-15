@@ -148,7 +148,15 @@ let little_endian_to_int (bytes: byte[]) =
     else if bytes.Length = 1 then
         uint64 <| bytes[0]
     else
-        uint64 <| BitConverter.ToUInt64 bytes
+        if bytes.Length < 8 then
+            let padding =  Array.zeroCreate (8 - bytes.Length)
+            let bytes = if BitConverter.IsLittleEndian then
+                            Array.concat [ bytes; padding ]
+                        else
+                            Array.concat [ padding; bytes ]
+            uint64 <| BitConverter.ToUInt64 bytes
+        else
+            uint64 <| BitConverter.ToUInt64 bytes[0..7]
 
 let int_to_little_endian (i: uint64, n: int) =
     let result = Array.zeroCreate n
